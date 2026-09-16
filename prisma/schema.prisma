@@ -1,0 +1,59 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Rol {
+  id       Int       @id @default(autoincrement())
+  nombre   String    @unique @db.VarChar(50)
+  usuarios Usuario[]
+
+  @@map("roles")
+}
+
+model Usuario {
+  id       Int     @id @default(autoincrement())
+  username String  @unique @db.VarChar(100)
+  password String  @db.VarChar(255)
+  rolId    Int     @map("rol_id")
+  rol      Rol     @relation(fields: [rolId], references: [id])
+  status   Boolean @default(true)
+
+  @@map("usuarios")
+}
+
+model Producto {
+  id                  Int     @id @default(autoincrement())
+  codigo              String  @db.VarChar(100)
+  descripcionOriginal String  @map("descripcion_original") @db.Text
+  casaFamilia         String? @map("casa_familia") @db.VarChar(150)
+  linea               String? @db.VarChar(150)
+  cilindraje          Int?
+  version             String? @db.VarChar(150)
+  tipoAcabado         String? @map("tipo_acabado") @db.VarChar(150)
+  detalles            String? @db.Text
+  lineaOriginal       String? @map("linea_original") @db.VarChar(150)
+  precioBaseCop       Decimal? @map("precio_base_cop") @db.Decimal(15, 2)
+  disponibilidad      Boolean  @default(true)
+  urlId               String? @map("url_id") @db.Text
+
+  @@map("productos")
+}
+
+model Cliente {
+  id               Int     @id @default(autoincrement())
+  nombre           String  @unique @db.VarChar(150)
+  personaContacto  String  @map("persona_contacto") @db.VarChar(150)
+  telefono         String  @db.VarChar(30)
+  direccion        String  @db.VarChar(255)
+  ciudad           String  @db.VarChar(100)
+  status           Boolean @default(true)
+
+  @@map("clientes")
+}
+
+
