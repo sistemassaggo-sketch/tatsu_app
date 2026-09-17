@@ -140,9 +140,9 @@
 }
 
 .fieldGroup input:focus-visible {
-  outline: 3px solid rgba(37, 70, 216, 0.25);
-  border-color: var(--primary);
-  box-shadow: 0 0 0 4px rgba(37, 70, 216, 0.12);
+  outline: 3px solid rgba(23, 107, 135, 0.18);
+  border-color: #176B87;
+  box-shadow: 0 0 0 4px rgba(23, 107, 135, 0.12);
 }
 
 .fieldGroup small {

@@ -1,5 +1,6 @@
 import prisma from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { registrarEventoAuditoria } from "@/lib/auditoria";
 
 function generarCodigoCotizacion() {
   const fecha = new Date();
@@ -25,6 +26,7 @@ export async function POST(request: Request) {
     const items: ItemCotizacionEntrada[] = Array.isArray(cuerpo.items) ? cuerpo.items : [];
     const descuentoActivo = Boolean(cuerpo.descuentoActivo);
     const descuentoPorcentaje = Number(cuerpo.descuentoPorcentaje ?? 0);
+    const fechaLocal = new Date(Date.now() - new Date().getTimezoneOffset() * 60 * 1000);
 
     if (!Number.isInteger(clienteId) || clienteId <= 0) {
       return NextResponse.json({ message: "Debe seleccionar un cliente válido." }, { status: 400 });
@@ -77,9 +79,11 @@ export async function POST(request: Request) {
       data: {
         codigo: generarCodigoCotizacion(),
         clienteId,
+        estado: "CREADO",
         descuentoActivo,
         descuentoPorc: descuentoActivo ? descuentoPorcentaje : 0,
         total,
+        fechaCreacion: fechaLocal,
         items: {
           create: productosParaGuardar.map((item) => ({
             productoId: item.productoId,
@@ -92,6 +96,15 @@ export async function POST(request: Request) {
       include: {
         items: true,
       },
+    });
+
+    await registrarEventoAuditoria({
+      usuario: "sistema",
+      usuarioId: null,
+      accion: "CREAR_COTIZACION",
+      descripcion: `Se creó la cotización ${cotizacion.codigo} para el cliente ${clienteId}.`,
+      recurso: "cotizaciones",
+      recursoId: cotizacion.id,
     });
 
     return NextResponse.json({

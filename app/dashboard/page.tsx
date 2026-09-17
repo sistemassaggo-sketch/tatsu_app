@@ -30,28 +30,14 @@ export default async function DashboardPage() {
           flexWrap: "wrap",
         }}
       >
-        <div>
+        <div style={{ minWidth: 0, flex: 1 }}>
           <p style={{ fontSize: 12, color: "#64748b", textTransform: "uppercase", letterSpacing: 1.5 }}>
             Dashboard
           </p>
-          <h1 style={{ fontSize: "clamp(1.8rem, 3vw, 2.4rem)", marginTop: 6 }}>Bienvenido</h1>
-        </div>
-
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-            background: "#eaf6fa",
-            borderRadius: 999,
-            padding: "10px 14px",
-            color: "#176B87",
-            fontWeight: 700,
-            maxWidth: "100%",
-          }}
-        >
-          <span>👤</span>
-          <span style={{ overflowWrap: "anywhere" }}>{session.user.username ?? session.user.name}</span>
+          <h1 style={{ fontSize: "clamp(1.8rem, 3vw, 2.4rem)", marginTop: 6, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", color: "#111827" }}>
+            <span>Bienvenido</span>
+            <span>{session.user.username ?? session.user.name}</span>
+          </h1>
         </div>
       </header>
 

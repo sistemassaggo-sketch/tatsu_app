@@ -58,11 +58,20 @@ model Cliente {
   @@map("clientes")
 }
 
+enum EstadoCotizacion {
+  CREADO
+  REVISION_ALMACEN
+  APROBACION_PRECIO
+  NO_APROBADO
+  LEGALIZADO
+}
+
 model Cotizacion {
   id               Int               @id @default(autoincrement())
   codigo           String            @unique @db.VarChar(50)
   clienteId        Int               @map("cliente_id")
   cliente          Cliente           @relation(fields: [clienteId], references: [id])
+  estado           EstadoCotizacion  @default(CREADO)
   descuentoActivo  Boolean           @default(false) @map("descuento_activo")
   descuentoPorc    Decimal?          @map("descuento_porc") @db.Decimal(5, 2)
   total            Decimal?          @db.Decimal(15, 2)
@@ -73,16 +82,33 @@ model Cotizacion {
 }
 
 model ItemCotizacion {
-  id              Int        @id @default(autoincrement())
-  cotizacionId    Int        @map("cotizacion_id")
-  cotizacion      Cotizacion @relation(fields: [cotizacionId], references: [id], onDelete: Cascade)
-  productoId      Int        @map("producto_id")
-  producto        Producto   @relation(fields: [productoId], references: [id])
-  cantidad        Int        @default(1)
-  precioUnitario  Decimal    @map("precio_unitario") @db.Decimal(15, 2)
-  subtotal        Decimal    @db.Decimal(15, 2)
+  id                Int        @id @default(autoincrement())
+  cotizacionId      Int        @map("cotizacion_id")
+  cotizacion        Cotizacion @relation(fields: [cotizacionId], references: [id], onDelete: Cascade)
+  productoId        Int        @map("producto_id")
+  producto          Producto   @relation(fields: [productoId], references: [id])
+  cantidad          Int        @default(1)
+  precioUnitario    Decimal    @map("precio_unitario") @db.Decimal(15, 2)
+  subtotal          Decimal    @db.Decimal(15, 2)
+  eliminado         Boolean    @default(false)
+  eliminadoPor      String?    @map("eliminado_por") @db.VarChar(100)
+  fechaEliminacion  DateTime?  @map("fecha_eliminacion")
 
   @@map("item_cotizacion")
+}
+
+model AuditoriaEvento {
+  id          Int      @id @default(autoincrement())
+  usuario     String   @db.VarChar(100)
+  usuarioId   Int?     @map("usuario_id")
+  accion      String   @db.VarChar(100)
+  descripcion String   @db.Text
+  ip          String?  @db.VarChar(50)
+  recurso     String   @db.VarChar(80)
+  recursoId   Int?     @map("recurso_id")
+  fechaHora   DateTime @default(now()) @map("fecha_hora")
+
+  @@map("auditoria_eventos")
 }
 
 

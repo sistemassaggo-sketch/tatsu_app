@@ -3,7 +3,7 @@
 import type { CSSProperties } from "react";
 import Link from "next/link";
 import { useDispatch, useSelector } from "react-redux";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   actualizarCantidad,
   eliminarProducto,
@@ -16,6 +16,13 @@ export default function CarritoCotizacion() {
   const dispatch = useDispatch();
   const { items, cliente, descuentoActivo, descuentoPorcentaje } = useSelector((state: RootState) => state.cotizacion);
   const [mostrarDescuento, setMostrarDescuento] = useState(descuentoActivo);
+  const [cantidadesEditadas, setCantidadesEditadas] = useState<Record<number, string>>({});
+
+  useEffect(() => {
+    setCantidadesEditadas(
+      Object.fromEntries(items.map((item) => [item.id, String(item.cantidad)])),
+    );
+  }, [items]);
 
   const subtotal = items.reduce((total, item) => total + item.precio * item.cantidad, 0);
   const descuento = descuentoActivo ? (subtotal * descuentoPorcentaje) / 100 : 0;
@@ -54,10 +61,26 @@ export default function CarritoCotizacion() {
               <label style={{ display: "grid", gap: 6, fontWeight: 700 }}>
                 Cantidad
                 <input
-                  type="number"
-                  min={1}
-                  value={item.cantidad}
-                  onChange={(evento) => dispatch(actualizarCantidad({ id: item.id, cantidad: Number(evento.target.value) || 1 }))}
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={cantidadesEditadas[item.id] ?? String(item.cantidad)}
+                  onChange={(evento) => {
+                    const valorTexto = evento.target.value;
+
+                    if (valorTexto === "") {
+                      setCantidadesEditadas((estado) => ({ ...estado, [item.id]: "" }));
+                      return;
+                    }
+
+                    if (!/^[1-9]\d*$/.test(valorTexto)) {
+                      return;
+                    }
+
+                    const valor = Number(valorTexto);
+                    setCantidadesEditadas((estado) => ({ ...estado, [item.id]: String(valor) }));
+                    dispatch(actualizarCantidad({ id: item.id, cantidad: valor }));
+                  }}
                   style={{ width: 80, ...estiloCampo }}
                 />
               </label>
@@ -96,11 +119,25 @@ export default function CarritoCotizacion() {
             <label style={{ display: "grid", gap: 6, fontWeight: 700 }}>
               % descuento
               <input
-                type="number"
-                min={0}
-                max={100}
-                value={descuentoPorcentaje}
-                onChange={(evento) => dispatch(cambiarDescuento(Number(evento.target.value) || 0))}
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                placeholder="0"
+                value={descuentoPorcentaje > 0 ? String(descuentoPorcentaje) : ""}
+                onChange={(evento) => {
+                  const valorTexto = evento.target.value;
+
+                  if (valorTexto === "") {
+                    dispatch(cambiarDescuento(0));
+                    return;
+                  }
+
+                  if (!/^(?:[0-9]|[1-9][0-9]|100)$/.test(valorTexto)) {
+                    return;
+                  }
+
+                  dispatch(cambiarDescuento(Number(valorTexto)));
+                }}
                 style={estiloCampo}
               />
             </label>

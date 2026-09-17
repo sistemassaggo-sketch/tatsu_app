@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { cambiarEstadoCliente } from "./acciones";
 import EditarCliente from "./EditarCliente";
 import FormularioCliente from "./FormularioCliente";
+import BotonIrArriba from "../BotonIrArriba";
 
 const clientesPorPagina = 10;
 
@@ -37,7 +38,9 @@ export default async function ClientesPage({
   });
 
   return (
-    <section style={estiloSeccion}>
+    <>
+      <BotonIrArriba />
+      <section style={estiloSeccion}>
       <h2 style={estiloTitulo}>Clientes</h2>
       <p style={{ color: "#475569", lineHeight: 1.7, marginBottom: 24 }}>
         Crea, busca y administra los clientes registrados.
@@ -46,9 +49,9 @@ export default async function ClientesPage({
 
       <div style={{ marginTop: 36 }}>
         <h3 style={{ fontSize: "1.2rem", marginBottom: 14 }}>Clientes registrados</h3>
-        <form action="/dashboard/clientes" method="get" style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+        <form action="/dashboard/clientes" method="get" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 8, marginBottom: 16 }}>
           <input name="busqueda" type="search" defaultValue={busqueda} placeholder="Buscar por nombre" aria-label="Buscar cliente" style={estiloBusqueda} />
-          <button type="submit" style={estiloBusqueda}>Buscar</button>
+          <button type="submit" style={{ ...estiloBusqueda, width: "100%" }}>Buscar</button>
         </form>
         <div style={{ display: "grid", gap: 12 }}>
           {clientes.map((cliente) => (
@@ -83,6 +86,7 @@ export default async function ClientesPage({
         ) : null}
       </div>
     </section>
+    </>
   );
 }
 

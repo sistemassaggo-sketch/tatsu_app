@@ -14,8 +14,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Atsu App | Sign In",
+  title: "Tatsu App",
   description: "Login screen with accessible, high-contrast account access.",
+  icons: {
+    icon: "/brand-mark.png",
+    shortcut: "/brand-mark.png",
+    apple: "/brand-mark.png",
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

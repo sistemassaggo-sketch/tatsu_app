@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
@@ -10,6 +11,9 @@ const menuItems = [
   { label: "Resumen", href: "/dashboard" },
   { label: "Usuarios", href: "/dashboard/usuarios" },
   { label: "Clientes", href: "/dashboard/clientes" },
+  { label: "Almacén", href: "/dashboard/almacen" },
+  { label: "Aprobación de precios", href: "/dashboard/aprobacion-precios" },
+  { label: "Auditoría", href: "/dashboard/auditoria" },
   { label: "Cotizaciones", href: "/dashboard/cotizaciones" },
 ];
 
@@ -18,9 +22,18 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const { data: session } = useSession();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const esAdministrador = session?.user?.role === "admin";
-  const elementosMenu = esAdministrador
-    ? menuItems
-    : menuItems.filter((item) => !["/dashboard/usuarios", "/dashboard/clientes"].includes(item.href));
+  const esAlmacen = session?.user?.role === "almacen";
+  const nombreUsuario = session?.user?.username ?? session?.user?.name ?? "Usuario";
+  const elementosMenu = esAdministrador || esAlmacen
+    ? menuItems.filter(
+        (item) =>
+          (item.href !== "/dashboard/aprobacion-precios" || esAdministrador) &&
+          (item.href !== "/dashboard/auditoria" || esAdministrador),
+      )
+    : menuItems.filter(
+        (item) =>
+          !["/dashboard/usuarios", "/dashboard/clientes", "/dashboard/almacen", "/dashboard/aprobacion-precios", "/dashboard/auditoria"].includes(item.href),
+      );
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "#f5f7fb", color: "#111827" }}>
@@ -70,8 +83,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       <aside
         style={{
           width: 260,
-          background: "#0f172a",
-          color: "#f8fafc",
+          background: "#EA5C25",
+          color: "#FFFFFF",
           padding: "24px 18px",
           display: "flex",
           flexDirection: "column",
@@ -81,7 +94,71 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           flexShrink: 0,
         }}
       >
-        <div style={{ fontSize: 24, fontWeight: 800 }}>Atsu App</div>
+        <div className="tituloSidebar" style={{ display: "flex", alignItems: "center", gap: 10, color: "#FFFFFF" }}>
+          <div style={{ width: 34, height: 34, flexShrink: 0, position: "relative" }}>
+            <Image
+              src="/brand-logo.png"
+              alt="Tatsu App"
+              fill
+              sizes="34px"
+              priority
+              style={{ objectFit: "contain" }}
+            />
+          </div>
+          <span style={{ fontSize: 24, fontWeight: 800, lineHeight: 1.2 }}>Tatsu App</span>
+        </div>
+
+        <div className="usuarioInfo" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", background: "rgba(255,255,255,0.06)", borderRadius: 12, padding: "10px 12px" }}>
+          <span
+            aria-hidden="true"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 28,
+              height: 28,
+              borderRadius: "50%",
+              background: "rgba(255,255,255,0.15)",
+              color: "#FFFFFF",
+              fontSize: 16,
+              lineHeight: 1,
+            }}
+          >
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="1.8" />
+              <path d="M4 19C5.8 15.8 8.5 14.2 12 14.2C15.5 14.2 18.2 15.8 20 19" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
+          </span>
+          <span style={{ fontWeight: 700, overflowWrap: "anywhere", flex: 1, minWidth: 0 }}>{nombreUsuario}</span>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (typeof window !== "undefined") {
+                window.localStorage.removeItem(STORAGE_KEY);
+              }
+              void signOut({ callbackUrl: "/" });
+            }}
+            style={{ margin: 0 }}
+          >
+            <button
+              type="submit"
+              className="botonCerrarSesion"
+              style={{
+                border: "1px solid #176B87",
+                borderRadius: 8,
+                background: "#FFFFFF",
+                color: "#176B87",
+                padding: "8px 10px",
+                fontWeight: 700,
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+              }}
+            >
+              Salir
+            </button>
+          </form>
+        </div>
+
         <nav style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {elementosMenu.map((item) => {
             const isActive = pathname === item.href;
@@ -94,8 +171,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                 style={{
                   padding: "10px 12px",
                   borderRadius: 10,
-                  background: isActive ? "rgba(255,255,255,0.12)" : "transparent",
-                  color: "#e2e8f0",
+                  background: isActive ? "#F5F7FB" : "transparent",
+                  color: isActive ? "#176B87" : "#FFFFFF",
                   textDecoration: "none",
                   fontWeight: isActive ? 700 : 500,
                 }}
@@ -105,41 +182,41 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             );
           })}
         </nav>
-
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (typeof window !== "undefined") {
-              window.localStorage.removeItem(STORAGE_KEY);
-            }
-            void signOut({ callbackUrl: "/" });
-          }}
-          style={{ marginTop: "auto" }}
-        >
-          <button
-            type="submit"
-            style={{
-              width: "100%",
-              border: "none",
-              borderRadius: 10,
-              background: "#176B87",
-              color: "#fff",
-              padding: "12px 14px",
-              fontWeight: 700,
-              cursor: "pointer",
-            }}
-          >
-            Cerrar sesión
-          </button>
-        </form>
       </aside>
 
       <main style={{ flex: 1, padding: 32, minWidth: 0 }}>{children}</main>
 
       <style jsx>{`
+        .usuarioInfo {
+          min-width: 0;
+        }
+
         @media (max-width: 768px) {
           .botonMenu {
             display: flex !important;
+          }
+
+          .tituloSidebar {
+            margin-top: 52px;
+            padding-left: 2px;
+            gap: 8px;
+          }
+
+          .tituloSidebar img {
+            width: 28px !important;
+            height: 28px !important;
+          }
+
+          .tituloSidebar span {
+            font-size: 20px !important;
+          }
+
+          .usuarioInfo {
+            gap: 8px;
+          }
+
+          .botonCerrarSesion {
+            width: 100%;
           }
 
           aside {

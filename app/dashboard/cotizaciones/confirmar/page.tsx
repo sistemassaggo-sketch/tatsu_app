@@ -2,8 +2,9 @@
 
 import type { CSSProperties } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useSelector, useDispatch } from "react-redux";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   actualizarCantidad,
   eliminarProducto,
@@ -15,6 +16,7 @@ import {
 } from "@/store/cotizacion";
 
 export default function ConfirmarCotizacionPage() {
+  const router = useRouter();
   const dispatch = useDispatch();
   const { items: itemsRedux, cliente: clienteRedux, descuentoActivo, descuentoPorcentaje } = useSelector(
     (state: RootState) => state.cotizacion,
@@ -23,9 +25,24 @@ export default function ConfirmarCotizacionPage() {
   const items = itemsRedux.length > 0 ? itemsRedux : estadoPersistido.items;
   const cliente = clienteRedux ?? estadoPersistido.cliente;
   const [mostrarDescuento, setMostrarDescuento] = useState(Boolean(descuentoActivo || estadoPersistido.descuentoActivo));
+  const [cantidadesEditadas, setCantidadesEditadas] = useState<Record<number, string>>({});
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState("");
   const [exito, setExito] = useState("");
+  const [toast, setToast] = useState<{ tipo: "success" | "error" | "warning"; mensaje: string } | null>(null);
+
+  useEffect(() => {
+    if (!toast) {
+      return;
+    }
+
+    const tiempo = toast.tipo === "success" ? 1800 : toast.tipo === "warning" ? 3500 : 3200;
+    const temporizador = window.setTimeout(() => {
+      setToast(null);
+    }, tiempo);
+
+    return () => window.clearTimeout(temporizador);
+  }, [toast]);
 
   const subtotal = items.reduce((total, item) => total + item.precio * item.cantidad, 0);
   const descuento = descuentoActivo ? (subtotal * descuentoPorcentaje) / 100 : 0;
@@ -33,7 +50,16 @@ export default function ConfirmarCotizacionPage() {
 
   async function guardarCotizacion() {
     if (!cliente || items.length === 0) {
-      setError("Debes seleccionar un cliente y al menos un producto.");
+      const mensaje = "Debes seleccionar un cliente y al menos un producto.";
+      setError(mensaje);
+      setToast({ tipo: "warning", mensaje });
+      return;
+    }
+
+    if (total < 500000) {
+      const mensaje = "La cotización debe tener un total mínimo de $500.000 para poder generarse.";
+      setError(mensaje);
+      setToast({ tipo: "warning", mensaje });
       return;
     }
 
@@ -70,20 +96,51 @@ export default function ConfirmarCotizacionPage() {
         throw new Error(datos.message || "No fue posible guardar la cotización.");
       }
 
-      setExito(`Cotización guardada correctamente: ${datos.codigo ?? "COTIZACIÓN"}`);
+      const mensajeExito = `Cotización guardada correctamente: ${datos.codigo ?? "COTIZACIÓN"}`;
+      setExito(mensajeExito);
+      setToast({ tipo: "success", mensaje: mensajeExito });
       dispatch(limpiarCarrito());
       if (typeof window !== "undefined") {
         window.localStorage.removeItem("cotizacion_estado");
       }
+
+      window.setTimeout(() => {
+        router.push("/dashboard/cotizaciones");
+      }, 1000);
     } catch (errorActual) {
-      setError(errorActual instanceof Error ? errorActual.message : "No fue posible guardar la cotización.");
+      const mensajeError = errorActual instanceof Error ? errorActual.message : "No fue posible guardar la cotización.";
+      setError(mensajeError);
+      setToast({ tipo: "error", mensaje: mensajeError });
     } finally {
       setGuardando(false);
     }
   }
 
   return (
-    <section style={estiloSeccion}>
+    <>
+      {toast ? (
+        <div
+          style={{
+            position: "fixed",
+            top: 24,
+            right: 24,
+            zIndex: 1500,
+            maxWidth: 360,
+            width: "calc(100vw - 32px)",
+            padding: "14px 16px",
+            borderRadius: 12,
+            background: toast.tipo === "success" ? "#087443" : toast.tipo === "warning" ? "#D97706" : "#B42318",
+            color: "#fff",
+            boxShadow: "0 16px 40px rgba(15, 23, 42, 0.18)",
+            fontWeight: 700,
+            letterSpacing: "0.01em",
+          }}
+        >
+          {toast.mensaje}
+        </div>
+      ) : null}
+
+      <section style={estiloSeccion}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 24 }}>
         <div>
           <h2 style={estiloTitulo}>Confirmar pedido</h2>
@@ -118,10 +175,26 @@ export default function ConfirmarCotizacionPage() {
                 <label style={{ display: "grid", gap: 6, fontWeight: 700 }}>
                   Cantidad
                   <input
-                    type="number"
-                    min={1}
-                    value={item.cantidad}
-                    onChange={(event) => dispatch(actualizarCantidad({ id: item.id, cantidad: Number(event.target.value) || 1 }))}
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={cantidadesEditadas[item.id] ?? String(item.cantidad)}
+                    onChange={(event) => {
+                      const valorTexto = event.target.value;
+
+                      if (valorTexto === "") {
+                        setCantidadesEditadas((estado) => ({ ...estado, [item.id]: "" }));
+                        return;
+                      }
+
+                      if (!/^[1-9]\d*$/.test(valorTexto)) {
+                        return;
+                      }
+
+                      const valor = Number(valorTexto);
+                      setCantidadesEditadas((estado) => ({ ...estado, [item.id]: String(valor) }));
+                      dispatch(actualizarCantidad({ id: item.id, cantidad: valor }));
+                    }}
                     style={{ ...estiloCampo, width: 80 }}
                   />
                 </label>
@@ -160,11 +233,25 @@ export default function ConfirmarCotizacionPage() {
               <label style={{ display: "grid", gap: 6, fontWeight: 700 }}>
                 % descuento
                 <input
-                  type="number"
-                  min={0}
-                  max={100}
-                  value={descuentoPorcentaje}
-                  onChange={(event) => dispatch(cambiarDescuento(Number(event.target.value) || 0))}
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  placeholder="0"
+                  value={descuentoPorcentaje > 0 ? String(descuentoPorcentaje) : ""}
+                  onChange={(event) => {
+                    const valorTexto = event.target.value;
+
+                    if (valorTexto === "") {
+                      dispatch(cambiarDescuento(0));
+                      return;
+                    }
+
+                    if (!/^(?:[0-9]|[1-9][0-9]|100)$/.test(valorTexto)) {
+                      return;
+                    }
+
+                    dispatch(cambiarDescuento(Number(valorTexto)));
+                  }}
                   style={estiloCampo}
                 />
               </label>
@@ -203,12 +290,13 @@ export default function ConfirmarCotizacionPage() {
                 opacity: guardando ? 0.7 : 1,
               }}
             >
-              {guardando ? "Guardando..." : "Guardar cotización"}
+              {guardando ? "Generando..." : "Generar cotización"}
             </button>
           </div>
         </div>
       )}
-    </section>
+      </section>
+    </>
   );
 }
 

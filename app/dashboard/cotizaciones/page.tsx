@@ -6,6 +6,7 @@ import ClienteSelector from "./ClienteSelector";
 import ProductosCotizacion from "./ProductosCotizacion";
 import CarritoCotizacion from "./CarritoCotizacion";
 import BuscadorProductosCotizacion from "./BuscadorProductosCotizacion";
+import BotonIrArriba from "../BotonIrArriba";
 
 const productosPorPagina = 10;
 
@@ -72,14 +73,16 @@ export default async function CotizacionesPage({
   const paginaValida = Math.min(paginaActual, totalPaginas);
 
   return (
-    <section style={estiloSeccion}>
+    <>
+      <BotonIrArriba />
+      <section style={estiloSeccion}>
       <h2 style={estiloTitulo}>Cotización</h2>
       <p style={{ color: "#475569", lineHeight: 1.7, marginBottom: 24 }}>
         Selecciona un cliente, busca productos por código o descripción general y agrega los que quieras al carrito.
       </p>
 
-      <div style={{ display: "grid", gap: 24, gridTemplateColumns: "1.5fr 1fr", alignItems: "start" }}>
-        <div style={{ display: "grid", gap: 20 }}>
+      <div style={{ display: "grid", gap: 24, gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 360px), 1fr))", alignItems: "start" }}>
+        <div style={{ display: "grid", gap: 20, minWidth: 0 }}>
           <ClienteSelector clientes={clientes} />
 
           <BuscadorProductosCotizacion />
@@ -102,6 +105,7 @@ export default async function CotizacionesPage({
         <CarritoCotizacion />
       </div>
     </section>
+    </>
   );
 }
 

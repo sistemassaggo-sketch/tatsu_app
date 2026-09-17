@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { timingSafeEqual, scryptSync } from "node:crypto";
 import prisma from "@/lib/prisma";
+import { registrarEventoAuditoria } from "@/lib/auditoria";
 
 declare module "next-auth" {
   interface User {
@@ -69,6 +70,15 @@ export const authOptions: NextAuthOptions = {
           if (!usuario || !comprobarContrasena(password, usuario.password)) {
             return null;
           }
+
+          await registrarEventoAuditoria({
+            usuario: usuario.username,
+            usuarioId: usuario.id,
+            accion: "INICIO_SESION",
+            descripcion: `El usuario ${usuario.username} inició sesión correctamente.`,
+            recurso: "usuarios",
+            recursoId: usuario.id,
+          });
 
           return {
             id: String(usuario.id),

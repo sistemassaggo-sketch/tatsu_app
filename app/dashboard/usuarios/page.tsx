@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { cambiarEstadoUsuario } from "./acciones";
 import FormularioUsuario from "./FormularioUsuario";
 import RestablecerContrasena from "./RestablecerContrasena";
+import BotonIrArriba from "../BotonIrArriba";
 
 const usuariosPorPagina = 10;
 
@@ -50,7 +51,9 @@ export default async function UsuariosPage({
   const paginaActual = Math.min(paginaInicial, totalPaginas);
 
   return (
-    <section
+    <>
+      <BotonIrArriba />
+      <section
       style={{
         background: "#fff",
         borderRadius: 16,
@@ -66,7 +69,7 @@ export default async function UsuariosPage({
 
       <div style={{ marginTop: 36 }}>
         <h3 style={{ fontSize: "1.2rem", marginBottom: 14 }}>Usuarios registrados</h3>
-        <form action="/dashboard/usuarios" method="get" style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+        <form action="/dashboard/usuarios" method="get" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 8, marginBottom: 16 }}>
           <input
             name="busqueda"
             type="search"
@@ -75,7 +78,7 @@ export default async function UsuariosPage({
             aria-label="Buscar usuario"
             style={{ ...estiloPaginacion, flex: 1, color: "#111827" }}
           />
-          <button type="submit" style={estiloPaginacion}>Buscar</button>
+          <button type="submit" style={{ ...estiloPaginacion, width: "100%" }}>Buscar</button>
         </form>
         <div style={{ display: "grid", gap: 12 }}>
           {usuarios.map((usuario) => (
@@ -137,6 +140,7 @@ export default async function UsuariosPage({
         ) : null}
       </div>
     </section>
+    </>
   );
 }
 

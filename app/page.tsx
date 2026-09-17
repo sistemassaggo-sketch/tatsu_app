@@ -55,7 +55,7 @@ export default function Home() {
       <section className={styles.card} aria-labelledby="login-title">
         <div className={styles.brandWrap}>
           <div className={styles.brandMark}>
-            <Image src="/brand-mark.png" alt="Atsu App brand mark" width={64} height={64} priority />
+            <Image src="/brand-mark.png" alt="Tatsu App brand mark" width={64} height={64} priority />
           </div>
           <div>
             <p className={styles.eyebrow}>Bienvenido</p>
@@ -103,12 +103,7 @@ export default function Home() {
           </div>
 
           <div className={styles.fieldGroup}>
-            <div className={styles.labelRow}>
-              <label htmlFor="password">Contraseña</label>
-              <a href="#" className={styles.forgotLink}>
-                ¿Olvidaste tu contraseña?
-              </a>
-            </div>
+            <label htmlFor="password">Contraseña</label>
             <input
               id="password"
               name="password"
