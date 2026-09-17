@@ -4,11 +4,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { useState, type ReactNode } from "react";
+import { STORAGE_KEY } from "@/store/cotizacion";
 
 const menuItems = [
   { label: "Resumen", href: "/dashboard" },
   { label: "Usuarios", href: "/dashboard/usuarios" },
   { label: "Clientes", href: "/dashboard/clientes" },
+  { label: "Cotizaciones", href: "/dashboard/cotizaciones" },
 ];
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
@@ -107,6 +109,9 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         <form
           onSubmit={(event) => {
             event.preventDefault();
+            if (typeof window !== "undefined") {
+              window.localStorage.removeItem(STORAGE_KEY);
+            }
             void signOut({ callbackUrl: "/" });
           }}
           style={{ marginTop: "auto" }}

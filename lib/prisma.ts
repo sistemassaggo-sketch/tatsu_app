@@ -9,7 +9,7 @@ if (!connectionString) {
   throw new Error("DATABASE_URL no está configurada.");
 }
 
-const globalForPrisma = globalThis as unknown as {
+const globalForPrisma = globalThis as typeof globalThis & {
   prisma?: PrismaClient;
 };
 
