@@ -14,6 +14,7 @@ declare module "next-auth" {
 
   interface Session {
     user: {
+      id?: string;
       username?: string | null;
       role?: string | null;
       status?: boolean;
@@ -23,6 +24,7 @@ declare module "next-auth" {
 
 declare module "next-auth/jwt" {
   interface JWT {
+    id?: string;
     username?: string | null;
     role?: string | null;
     status?: boolean;
@@ -94,6 +96,7 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
+        token.id = user.id;
         token.username = user.username ?? null;
         token.role = user.role ?? null;
         token.status = user.status ?? false;
@@ -104,6 +107,7 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }) {
       if (session.user) {
         session.user.name = session.user.name ?? "Administrador";
+        session.user.id = token.id;
         session.user.username = token.username ?? null;
         session.user.role = token.role ?? null;
         session.user.status = token.status ?? false;
