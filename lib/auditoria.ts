@@ -1,5 +1,5 @@
 import { headers } from "next/headers";
-import prisma from "@/lib/prisma";
+import prisma, { esErrorDeConexionCerrada } from "@/lib/prisma";
 
 export type TipoEventoAuditoria =
   | "INICIO_SESION"
@@ -29,17 +29,26 @@ export async function registrarEventoAuditoria({
     const cabeceras = await headers();
     const ip = cabeceras.get("x-forwarded-for")?.split(",")[0]?.trim() ?? cabeceras.get("x-real-ip") ?? "Desconocida";
 
-    await prisma.auditoriaEvento.create({
-      data: {
-        usuario,
-        usuarioId: usuarioId ?? null,
-        accion,
-        descripcion,
-        ip,
-        recurso,
-        recursoId: recursoId ?? null,
-      },
-    });
+    const datos = {
+      usuario,
+      usuarioId: usuarioId ?? null,
+      accion,
+      descripcion,
+      ip,
+      recurso,
+      recursoId: recursoId ?? null,
+    };
+
+    try {
+      await prisma.auditoriaEvento.create({ data: datos });
+    } catch (error) {
+      // Si la conexión del pool estaba cerrada, el evento no llegó a guardarse: se reintenta una vez.
+      if (!esErrorDeConexionCerrada(error)) {
+        throw error;
+      }
+
+      await prisma.auditoriaEvento.create({ data: datos });
+    }
   } catch (error) {
     console.error("Error registrando auditoría:", error);
   }
