@@ -1,24 +1,31 @@
 import prisma from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { randomBytes } from "node:crypto";
+import { auth } from "@/app/auth";
 import { registrarEventoAuditoria } from "@/lib/auditoria";
 
 function generarCodigoCotizacion() {
   const fecha = new Date();
   const fechaCodigo = fecha.toISOString().slice(0, 10).replace(/-/g, "");
-  const randomParte = Math.random().toString(36).slice(2, 8).toUpperCase();
+  const randomParte = randomBytes(4).toString("hex").toUpperCase();
   return `COT-${fechaCodigo}-${randomParte}`;
 }
 
 type ItemCotizacionEntrada = {
   id?: number | string;
   cantidad?: number | string;
-  precio?: number | string;
 };
 
 export async function POST(request: Request) {
   try {
-    if (!prisma || !(prisma as typeof prisma & { cotizacion?: { create: (...args: any[]) => Promise<any> } }).cotizacion) {
-      throw new Error("Prisma no está inicializado correctamente.");
+    const sesion = await auth();
+
+    if (!sesion?.user) {
+      return NextResponse.json({ message: "No autorizado." }, { status: 401 });
+    }
+
+    if (!["admin", "comercial"].includes(sesion.user.role ?? "")) {
+      return NextResponse.json({ message: "No tienes permisos para crear cotizaciones." }, { status: 403 });
     }
 
     const cuerpo = await request.json();
@@ -27,6 +34,10 @@ export async function POST(request: Request) {
     const descuentoActivo = Boolean(cuerpo.descuentoActivo);
     const descuentoPorcentaje = Number(cuerpo.descuentoPorcentaje ?? 0);
     const fechaLocal = new Date(Date.now() - new Date().getTimezoneOffset() * 60 * 1000);
+
+    if (!Number.isFinite(descuentoPorcentaje) || descuentoPorcentaje < 0 || descuentoPorcentaje > 100) {
+      return NextResponse.json({ message: "El descuento debe estar entre 0 y 100." }, { status: 400 });
+    }
 
     if (!Number.isInteger(clienteId) || clienteId <= 0) {
       return NextResponse.json({ message: "Debe seleccionar un cliente válido." }, { status: 400 });
@@ -48,9 +59,8 @@ export async function POST(request: Request) {
       items.map(async (item: ItemCotizacionEntrada) => {
         const productoId = Number(item.id);
         const cantidad = Number(item.cantidad ?? 1);
-        const precioUnitario = Number(item.precio ?? 0);
 
-        if (!Number.isInteger(productoId) || productoId <= 0 || !Number.isFinite(cantidad) || cantidad <= 0) {
+        if (!Number.isInteger(productoId) || productoId <= 0 || !Number.isInteger(cantidad) || cantidad <= 0) {
           throw new Error("Hay productos con datos inválidos.");
         }
 
@@ -60,10 +70,14 @@ export async function POST(request: Request) {
           throw new Error(`El producto con id ${productoId} no existe.`);
         }
 
+        if (producto.precioBaseCop == null) {
+          throw new Error(`El producto ${producto.id} no tiene precio base.`);
+        }
+
         return {
           productoId,
           cantidad,
-          precioUnitario: Number(producto.precioBaseCop ?? precioUnitario),
+          precioUnitario: Number(producto.precioBaseCop),
         };
       }),
     );
@@ -75,9 +89,16 @@ export async function POST(request: Request) {
     const descuento = descuentoActivo ? (subtotal * descuentoPorcentaje) / 100 : 0;
     const total = subtotal - descuento;
 
+    // Vendedor = el usuario con sesión iniciada.
+    const nombreUsuarioSesion = sesion.user.username ?? "";
+    const usuarioSesion = nombreUsuarioSesion
+      ? await prisma.usuario.findUnique({ where: { username: nombreUsuarioSesion }, select: { id: true } })
+      : null;
+
     const cotizacion = await prisma.cotizacion.create({
       data: {
         codigo: generarCodigoCotizacion(),
+        vendedorId: usuarioSesion?.id ?? null,
         clienteId,
         estado: "CREADO",
         descuentoActivo,
@@ -99,8 +120,8 @@ export async function POST(request: Request) {
     });
 
     await registrarEventoAuditoria({
-      usuario: "sistema",
-      usuarioId: null,
+      usuario: sesion.user.username ?? sesion.user.name ?? "usuario",
+      usuarioId: Number((sesion.user as { id?: string }).id ?? 0) || null,
       accion: "CREAR_COTIZACION",
       descripcion: `Se creó la cotización ${cotizacion.codigo} para el cliente ${clienteId}.`,
       recurso: "cotizaciones",

@@ -6,7 +6,9 @@ export type TipoEventoAuditoria =
   | "CREAR_COTIZACION"
   | "MODIFICAR_COTIZACION"
   | "APROBAR_COTIZACION"
-  | "RECHAZAR_COTIZACION";
+  | "RECHAZAR_COTIZACION"
+  | "SOLICITAR_RESTABLECIMIENTO"
+  | "RESTABLECER_CONTRASENA";
 
 export async function registrarEventoAuditoria({
   usuario,

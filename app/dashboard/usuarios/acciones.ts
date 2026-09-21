@@ -1,9 +1,10 @@
 "use server";
 
-import { randomBytes, scryptSync } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/app/auth";
 import prisma from "@/lib/prisma";
+import { cifrarContrasena } from "@/lib/contrasenas";
+import { registrarEventoAuditoria } from "@/lib/auditoria";
 
 const rolesPermitidos = ["almacen", "comercial"] as const;
 
@@ -11,13 +12,6 @@ export type EstadoFormularioUsuario = {
   error?: string;
   exito?: string;
 };
-
-function cifrarContrasena(contrasena: string) {
-  const sal = randomBytes(16).toString("hex");
-  const hash = scryptSync(contrasena, sal, 64).toString("hex");
-
-  return `scrypt:${sal}:${hash}`;
-}
 
 export async function crearUsuario(
   _estadoAnterior: EstadoFormularioUsuario,
@@ -32,9 +26,14 @@ export async function crearUsuario(
   const username = String(datosFormulario.get("username") ?? "").trim();
   const password = String(datosFormulario.get("password") ?? "");
   const rolId = Number(datosFormulario.get("rolId"));
+  const nombre = String(datosFormulario.get("vendedor") ?? "").trim();
 
-  if (!username || !password || !Number.isInteger(rolId)) {
-    return { error: "Completa usuario, contraseña y rol." };
+  if (!username || !password || !nombre || !Number.isInteger(rolId)) {
+    return { error: "Completa usuario, contraseña, vendedor y rol." };
+  }
+
+  if (nombre.length > 150) {
+    return { error: "El nombre del vendedor no puede superar 150 caracteres." };
   }
 
   if (password.length < 6) {
@@ -54,6 +53,7 @@ export async function crearUsuario(
       data: {
         username,
         password: cifrarContrasena(password),
+        nombre,
         rolId,
       },
     });
@@ -70,43 +70,41 @@ export async function crearUsuario(
   }
 }
 
-export async function restablecerContrasena(
-  _estadoAnterior: EstadoFormularioUsuario,
-  datosFormulario: FormData,
-): Promise<EstadoFormularioUsuario> {
+export async function solicitarRestablecimientoContrasena(datosFormulario: FormData) {
   const sesion = await auth();
 
   if (sesion?.user?.role !== "admin") {
-    return { error: "No tienes permisos para restablecer contraseñas." };
+    return;
   }
 
   const usuarioId = Number(datosFormulario.get("usuarioId"));
-  const nuevaContrasena = String(datosFormulario.get("nuevaContrasena") ?? "");
 
-  if (!Number.isInteger(usuarioId) || !nuevaContrasena) {
-    return { error: "Completa la nueva contraseña." };
+  if (!Number.isInteger(usuarioId)) {
+    return;
   }
 
-  if (nuevaContrasena.length < 6) {
-    return { error: "La contraseña debe tener al menos 6 caracteres." };
+  const usuario = await prisma.usuario.update({
+    where: { id: usuarioId },
+    data: { debeRestablecerContrasena: true },
+    select: { username: true },
+  }).catch(() => null);
+
+  if (!usuario) {
+    return;
   }
 
-  try {
-    const resultado = await prisma.usuario.updateMany({
-      where: { id: usuarioId },
-      data: { password: cifrarContrasena(nuevaContrasena) },
-    });
+  const admin = sesion.user.username ?? sesion.user.name ?? "admin";
 
-    if (resultado.count === 0) {
-      return { error: "El usuario no existe." };
-    }
+  await registrarEventoAuditoria({
+    usuario: admin,
+    usuarioId: Number((sesion.user as { id?: string }).id ?? 0) || null,
+    accion: "SOLICITAR_RESTABLECIMIENTO",
+    descripcion: `El administrador ${admin} solicitó restablecer la contraseña de ${usuario.username}.`,
+    recurso: "usuarios",
+    recursoId: usuarioId,
+  });
 
-    revalidatePath("/dashboard/usuarios");
-    return { exito: "Contraseña restablecida correctamente." };
-  } catch (error) {
-    console.error("Error restableciendo contraseña:", error);
-    return { error: "No fue posible restablecer la contraseña." };
-  }
+  revalidatePath("/dashboard/usuarios");
 }
 
 export async function cambiarEstadoUsuario(datosFormulario: FormData) {

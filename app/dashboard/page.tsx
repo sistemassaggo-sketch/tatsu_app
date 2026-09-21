@@ -1,4 +1,5 @@
 import { auth } from "@/app/auth";
+import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -12,6 +13,46 @@ export default async function DashboardPage() {
 
   if (!session?.user) {
     redirect("/");
+  }
+
+  let metricas: { titulo: string; valor: number; color: string }[] | null = null;
+
+  if (session.user.role === "admin") {
+    const [legalizaciones, cotizaciones, auditoria, clientes, usuarios] = await Promise.all([
+      prisma.cotizacion.count({ where: { estado: "LEGALIZADO" } }),
+      prisma.cotizacion.count(),
+      prisma.auditoriaEvento.count(),
+      prisma.cliente.count(),
+      prisma.usuario.count({ where: { status: true } }),
+    ]);
+
+    metricas = [
+      { titulo: "Legalizaciones", valor: legalizaciones, color: "#176B87" },
+      { titulo: "Cotizaciones", valor: cotizaciones, color: "#EA5C25" },
+      { titulo: "Registros de auditoría", valor: auditoria, color: "#7c3aed" },
+      { titulo: "Clientes", valor: clientes, color: "#15803d" },
+      { titulo: "Usuarios activos", valor: usuarios, color: "#b45309" },
+    ];
+  } else if (session.user.role === "almacen") {
+    const [revision, legalizaciones] = await Promise.all([
+      prisma.cotizacion.count({ where: { estado: "REVISION_ALMACEN" } }),
+      prisma.cotizacion.count({ where: { estado: "LEGALIZADO" } }),
+    ]);
+
+    metricas = [
+      { titulo: "Cotizaciones en revisión de almacén", valor: revision, color: "#EA5C25" },
+      { titulo: "Legalizaciones", valor: legalizaciones, color: "#176B87" },
+    ];
+  } else if (session.user.role === "comercial") {
+    const [cotizaciones, legalizaciones] = await Promise.all([
+      prisma.cotizacion.count(),
+      prisma.cotizacion.count({ where: { estado: "LEGALIZADO" } }),
+    ]);
+
+    metricas = [
+      { titulo: "Cotizaciones", valor: cotizaciones, color: "#EA5C25" },
+      { titulo: "Legalizaciones", valor: legalizaciones, color: "#176B87" },
+    ];
   }
 
   return (
@@ -40,20 +81,38 @@ export default async function DashboardPage() {
           </h1>
         </div>
       </header>
+      
 
-      <section
-        style={{
-          background: "#fff",
-          borderRadius: 16,
-          padding: "clamp(20px, 3vw, 28px)",
-          boxShadow: "0 10px 28px rgba(15, 23, 42, 0.06)",
-        }}
-      >
-        <h2 style={{ fontSize: "clamp(1.3rem, 2vw, 1.9rem)", marginBottom: 10 }}>Resumen</h2>
-        <p style={{ color: "#475569", lineHeight: 1.7 }}>
-          Este es el panel principal del sistema. Aquí podrás acceder a los diferentes módulos desde el menú lateral.
-        </p>
-      </section>
+      {metricas ? (
+        <section
+          aria-label="Resumen general"
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 200px), 1fr))",
+            gap: 16,
+            marginBottom: 24,
+          }}
+        >
+          {metricas.map((metrica) => (
+            <article
+              key={metrica.titulo}
+              style={{
+                background: "#fff",
+                borderRadius: 16,
+                padding: "clamp(16px, 2.5vw, 22px)",
+                boxShadow: "0 10px 28px rgba(15, 23, 42, 0.06)",
+                borderTop: `4px solid ${metrica.color}`,
+                minWidth: 0,
+              }}
+            >
+              <p style={{ margin: 0, fontSize: 13, color: "#64748b", fontWeight: 600 }}>{metrica.titulo}</p>
+              <p style={{ margin: "8px 0 0", fontSize: "clamp(1.8rem, 3vw, 2.4rem)", fontWeight: 800, color: metrica.color }}>
+                {new Intl.NumberFormat("es-CO").format(metrica.valor)}
+              </p>
+            </article>
+          ))}
+        </section>
+      ) : null}
     </>
   );
 }

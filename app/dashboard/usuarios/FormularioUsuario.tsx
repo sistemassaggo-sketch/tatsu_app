@@ -28,6 +28,18 @@ export default function FormularioUsuario({ roles }: { roles: RolFormulario[] })
       </label>
 
       <label style={{ display: "grid", gap: 7, fontWeight: 700 }}>
+        Nombre de la persona
+        <input
+          name="vendedor"
+          type="text"
+          placeholder="Nombre de la persona"
+          maxLength={150}
+          required
+          style={estiloCampo}
+        />
+      </label>
+
+      <label style={{ display: "grid", gap: 7, fontWeight: 700 }}>
         Contraseña
         <input
           name="password"

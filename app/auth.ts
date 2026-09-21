@@ -1,8 +1,8 @@
 import type { DefaultSession, NextAuthOptions } from "next-auth";
 import { getServerSession } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { timingSafeEqual, scryptSync } from "node:crypto";
 import prisma from "@/lib/prisma";
+import { comprobarContrasena } from "@/lib/contrasenas";
 import { registrarEventoAuditoria } from "@/lib/auditoria";
 
 declare module "next-auth" {
@@ -29,18 +29,7 @@ declare module "next-auth/jwt" {
   }
 }
 
-function comprobarContrasena(contrasena: string, contrasenaCifrada: string) {
-  const [algoritmo, sal, hashGuardado] = contrasenaCifrada.split(":");
-
-  if (algoritmo !== "scrypt" || !sal || !hashGuardado) {
-    return false;
-  }
-
-  const hashCalculado = scryptSync(contrasena, sal, 64);
-  const hashEsperado = Buffer.from(hashGuardado, "hex");
-
-  return hashCalculado.length === hashEsperado.length && timingSafeEqual(hashCalculado, hashEsperado);
-}
+export const ERROR_RESTABLECER_CONTRASENA = "RESTABLECER_CONTRASENA";
 
 export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
@@ -71,6 +60,10 @@ export const authOptions: NextAuthOptions = {
             return null;
           }
 
+          if (usuario.debeRestablecerContrasena) {
+            throw new Error(ERROR_RESTABLECER_CONTRASENA);
+          }
+
           await registrarEventoAuditoria({
             usuario: usuario.username,
             usuarioId: usuario.id,
@@ -88,6 +81,10 @@ export const authOptions: NextAuthOptions = {
             status: usuario.status,
           };
         } catch (error) {
+          if (error instanceof Error && error.message === ERROR_RESTABLECER_CONTRASENA) {
+            throw error;
+          }
+
           console.error("Error validating credentials:", error);
           return null;
         }

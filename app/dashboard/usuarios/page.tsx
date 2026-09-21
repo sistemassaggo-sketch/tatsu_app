@@ -4,7 +4,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { cambiarEstadoUsuario } from "./acciones";
 import FormularioUsuario from "./FormularioUsuario";
-import RestablecerContrasena from "./RestablecerContrasena";
+import BotonRestablecerContrasena from "./BotonRestablecerContrasena";
 import BotonIrArriba from "../BotonIrArriba";
 
 const usuariosPorPagina = 10;
@@ -39,7 +39,9 @@ export default async function UsuariosPage({
       select: {
         id: true,
         username: true,
+        nombre: true,
         status: true,
+        debeRestablecerContrasena: true,
         rol: { select: { nombre: true } },
       },
       orderBy: { username: "asc" },
@@ -95,7 +97,7 @@ export default async function UsuariosPage({
               <div>
                 <strong>{usuario.username}</strong>
                 <p style={{ color: "#475569", margin: "5px 0 0" }}>
-                  Rol: {usuario.rol.nombre} · Estado: {usuario.status ? "Activo" : "Inactivo"}
+                  Vendedor: {usuario.nombre ?? "—"} · Rol: {usuario.rol.nombre} · Estado: {usuario.status ? "Activo" : "Inactivo"}
                 </p>
               </div>
               <form action={cambiarEstadoUsuario}>
@@ -113,7 +115,7 @@ export default async function UsuariosPage({
                   {usuario.status ? "Usuario inactivo" : "Usuario activo"}
                 </button>
               </form>
-              <RestablecerContrasena usuarioId={usuario.id} />
+              <BotonRestablecerContrasena usuarioId={usuario.id} pendiente={usuario.debeRestablecerContrasena} />
             </article>
           ))}
           {usuarios.length === 0 ? <p style={{ color: "#475569" }}>No hay usuarios registrados.</p> : null}

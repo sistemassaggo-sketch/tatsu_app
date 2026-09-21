@@ -66,6 +66,7 @@ export default async function DetalleCotizacionAlmacenPage({ params }: { params:
           fechaEliminacion: item.fechaEliminacion ? item.fechaEliminacion.toISOString() : null,
         }))}
         totalInicial={Number(cotizacion.total ?? subtotal)}
+        descuentoPorc={cotizacion.descuentoActivo ? Number(cotizacion.descuentoPorc ?? 0) : 0}
       />
     </section>
   );

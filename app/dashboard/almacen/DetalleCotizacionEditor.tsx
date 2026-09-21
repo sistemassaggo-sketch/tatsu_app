@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useActionState, useMemo, useState } from "react";
 import { actualizarCotizacionAlmacen } from "./acciones";
 
 type ItemCotizacionEditor = {
@@ -17,12 +17,14 @@ type ItemCotizacionEditor = {
 export default function DetalleCotizacionEditor({
   cotizacionId,
   itemsIniciales,
-  totalInicial,
+  descuentoPorc = 0,
 }: {
   cotizacionId: number;
   itemsIniciales: ItemCotizacionEditor[];
-  totalInicial: number;
+  totalInicial?: number;
+  descuentoPorc?: number;
 }) {
+  const [estadoAccion, accionFormulario] = useActionState(actualizarCotizacionAlmacen, null);
   const [items, setItems] = useState(
     itemsIniciales.map((item) => ({
       ...item,
@@ -41,8 +43,11 @@ export default function DetalleCotizacionEditor({
     [items],
   );
 
-  const totalActual = subtotal;
+  const descuento = (subtotal * descuentoPorc) / 100;
+  const totalActual = subtotal - descuento;
   const totalMinimo = 500000;
+  // El mínimo se valida sobre el subtotal (antes de descuento), igual que en el servidor.
+  const bajoMinimo = subtotal < totalMinimo;
 
   const actualizarCantidad = (itemId: number, cantidad: number) => {
     const cantidadValida = Number.isFinite(cantidad) ? Math.max(1, cantidad) : 1;
@@ -62,7 +67,7 @@ export default function DetalleCotizacionEditor({
   };
 
   const manejarSubmit = (evento: React.FormEvent<HTMLFormElement>) => {
-    if (totalActual < totalMinimo) {
+    if (bajoMinimo) {
       evento.preventDefault();
       setMensajeError("La cotización debe tener un total mínimo de $500.000 para poder guardarse.");
     } else {
@@ -71,7 +76,7 @@ export default function DetalleCotizacionEditor({
   };
 
   return (
-    <form action={actualizarCotizacionAlmacen} onSubmit={manejarSubmit} style={{ display: "grid", gap: 20 }}>
+    <form action={accionFormulario} onSubmit={manejarSubmit} style={{ display: "grid", gap: 20 }}>
       <input type="hidden" name="cotizacionId" value={cotizacionId} />
 
       <div style={{ display: "grid", gap: 12 }}>
@@ -151,6 +156,12 @@ export default function DetalleCotizacionEditor({
           <span>Subtotal</span>
           <strong>{formatearCop(subtotal)}</strong>
         </div>
+        {descuentoPorc > 0 ? (
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <span>Descuento ({descuentoPorc}%)</span>
+            <strong>-{formatearCop(descuento)}</strong>
+          </div>
+        ) : null}
         <div style={{ display: "flex", justifyContent: "space-between", fontSize: 20, fontWeight: 800 }}>
           <span>Total</span>
           <span style={{ color: "#176B87" }}>{formatearCop(totalActual)}</span>
@@ -158,20 +169,23 @@ export default function DetalleCotizacionEditor({
       </div>
 
       {mensajeError ? <p style={{ margin: 0, color: "#b42318", fontWeight: 700 }}>{mensajeError}</p> : null}
+      {estadoAccion && !estadoAccion.ok ? (
+        <p style={{ margin: 0, color: "#b42318", fontWeight: 700 }}>{estadoAccion.mensaje}</p>
+      ) : null}
 
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
         <button
           type="submit"
-          disabled={totalActual < totalMinimo}
+          disabled={bajoMinimo}
           style={{
             border: "none",
             borderRadius: 8,
-            background: totalActual < totalMinimo ? "#cbd5e1" : "#EA5C25",
-            color: totalActual < totalMinimo ? "#475569" : "#fff",
+            background: bajoMinimo ? "#cbd5e1" : "#EA5C25",
+            color: bajoMinimo ? "#475569" : "#fff",
             padding: "12px 16px",
             fontWeight: 700,
-            cursor: totalActual < totalMinimo ? "not-allowed" : "pointer",
-            opacity: totalActual < totalMinimo ? 0.8 : 1,
+            cursor: bajoMinimo ? "not-allowed" : "pointer",
+            opacity: bajoMinimo ? 0.8 : 1,
           }}
         >
           Guardar y enviar a revisión

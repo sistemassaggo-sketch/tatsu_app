@@ -1,11 +1,13 @@
 "use client";
 
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { useState } from "react";
 import styles from "./page.module.css";
 
 export default function Home() {
+  const router = useRouter();
   const [largeText, setLargeText] = useState(false);
   const [highContrast, setHighContrast] = useState(false);
   const [username, setUsername] = useState("");
@@ -36,12 +38,22 @@ export default function Home() {
         throw new Error("Debes completar usuario y contraseña.");
       }
 
-      await signIn("credentials", {
+      const resultado = await signIn("credentials", {
         username: datosCliente.username,
         password: datosCliente.password,
-        redirect: true,
-        callbackUrl: obtenerRutaDeRetorno(),
+        redirect: false,
       });
+
+      if (resultado?.error === "RESTABLECER_CONTRASENA") {
+        router.push(`/restablecer-contrasena?usuario=${encodeURIComponent(datosCliente.username)}`);
+        return;
+      }
+
+      if (!resultado || resultado.error) {
+        throw new Error("Usuario o contraseña incorrectos.");
+      }
+
+      window.location.assign(obtenerRutaDeRetorno());
     } catch (error) {
       const mensaje = error instanceof Error ? error.message : "Ocurrió un error inesperado.";
       setError(mensaje);

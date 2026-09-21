@@ -1,4 +1,5 @@
 import withAuth from "next-auth/middleware";
+import { puedeAccederARuta } from "@/lib/permisos";
 
 export default withAuth({
   pages: {
@@ -10,11 +11,7 @@ export default withAuth({
         return false;
       }
 
-      if (req.nextUrl.pathname.startsWith("/dashboard/usuarios")) {
-        return token?.role === "admin";
-      }
-
-      return Boolean(token);
+      return puedeAccederARuta(token.role, req.nextUrl.pathname);
     },
   },
 });

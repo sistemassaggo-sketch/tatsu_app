@@ -6,12 +6,14 @@ import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { useState, type ReactNode } from "react";
 import { STORAGE_KEY } from "@/store/cotizacion";
+import { puedeAccederARuta } from "@/lib/permisos";
 
 const menuItems = [
   { label: "Resumen", href: "/dashboard" },
   { label: "Usuarios", href: "/dashboard/usuarios" },
   { label: "Clientes", href: "/dashboard/clientes" },
   { label: "Almacén", href: "/dashboard/almacen" },
+  { label: "Legalizaciones", href: "/dashboard/legalizaciones" },
   { label: "Aprobación de precios", href: "/dashboard/aprobacion-precios" },
   { label: "Auditoría", href: "/dashboard/auditoria" },
   { label: "Cotizaciones", href: "/dashboard/cotizaciones" },
@@ -21,19 +23,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { data: session } = useSession();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const esAdministrador = session?.user?.role === "admin";
-  const esAlmacen = session?.user?.role === "almacen";
   const nombreUsuario = session?.user?.username ?? session?.user?.name ?? "Usuario";
-  const elementosMenu = esAdministrador || esAlmacen
-    ? menuItems.filter(
-        (item) =>
-          (item.href !== "/dashboard/aprobacion-precios" || esAdministrador) &&
-          (item.href !== "/dashboard/auditoria" || esAdministrador),
-      )
-    : menuItems.filter(
-        (item) =>
-          !["/dashboard/usuarios", "/dashboard/clientes", "/dashboard/almacen", "/dashboard/aprobacion-precios", "/dashboard/auditoria"].includes(item.href),
-      );
+  const elementosMenu = menuItems.filter((item) => puedeAccederARuta(session?.user?.role, item.href));
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "#f5f7fb", color: "#111827" }}>
