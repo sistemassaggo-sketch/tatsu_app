@@ -1,11 +1,12 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { auth } from "@/app/auth";
 import prisma from "@/lib/prisma";
 import { randomBytes } from "node:crypto";
 import { registrarEventoAuditoria } from "@/lib/auditoria";
 import { fechaCodigoColombia } from "@/lib/fechas";
+import { TAG_REPORTES } from "@/lib/reportes";
 
 function generarCodigoLegalizacion() {
   const fechaCodigo = fechaCodigoColombia();
@@ -134,6 +135,9 @@ export async function actualizarCotizacionAlmacen(
 
   revalidatePath("/dashboard/almacen");
   revalidatePath(`/dashboard/almacen/${cotizacionId}`);
+  if (estadoSiguiente === "LEGALIZADO") {
+    revalidateTag(TAG_REPORTES, "max");
+  }
 
   return { ok: true, mensaje: "Cotización actualizada." };
 }
@@ -173,6 +177,7 @@ export async function aprobarCotizacion(formData: FormData) {
   });
 
   revalidatePath("/dashboard/legalizaciones");
+  revalidateTag(TAG_REPORTES, "max");
   revalidatePath("/dashboard/aprobacion-precios");
   revalidatePath("/dashboard/almacen");
 }

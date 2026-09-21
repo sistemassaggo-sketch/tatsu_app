@@ -84,6 +84,7 @@ model Cotizacion {
   fechaCreacion      DateTime         @default(now()) @map("fecha_creacion")
   items              ItemCotizacion[]
 
+  @@index([estado, fechaCreacion])
   @@map("cotizaciones")
 }
 
@@ -100,6 +101,8 @@ model ItemCotizacion {
   eliminadoPor     String?    @map("eliminado_por") @db.VarChar(100)
   fechaEliminacion DateTime?  @map("fecha_eliminacion")
 
+  @@index([cotizacionId])
+  @@index([productoId])
   @@map("item_cotizacion")
 }
 

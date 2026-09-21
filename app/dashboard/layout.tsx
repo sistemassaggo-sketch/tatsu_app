@@ -16,6 +16,7 @@ const menuItems = [
   { label: "Legalizaciones", href: "/dashboard/legalizaciones" },
   { label: "Aprobación de precios", href: "/dashboard/aprobacion-precios" },
   { label: "Auditoría", href: "/dashboard/auditoria" },
+  { label: "Reportes", href: "/dashboard/reportes" },
   { label: "Cotizaciones", href: "/dashboard/cotizaciones" },
 ];
 
