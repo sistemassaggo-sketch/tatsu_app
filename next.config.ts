@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   images: {
+    unoptimized: true,
     // Imágenes de productos alojadas en Cloudinary (solo la cuenta de la app).
     remotePatterns: [
       {
