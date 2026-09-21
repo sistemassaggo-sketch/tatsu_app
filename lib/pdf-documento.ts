@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import JsBarcode from "jsbarcode";
+import { formatearFechaHora } from "@/lib/fechas";
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 
 const ANCHO = 612;
@@ -106,7 +107,7 @@ export async function generarPdfDocumento(datos: DatosDocumentoPdf) {
   const formatearCop = (valor: number) =>
     new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(valor);
 
-  const fecha = new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeStyle: "short" }).format(datos.fecha);
+  const fecha = formatearFechaHora(datos.fecha);
 
   const dibujarEncabezado = (pagina: PDFPage) => {
     pagina.drawImage(logo, { x: MARGEN, y: ALTO - 80, width: 50, height: 50 });

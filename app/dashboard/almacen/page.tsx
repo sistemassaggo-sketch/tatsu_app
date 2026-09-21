@@ -2,6 +2,7 @@ import { auth } from "@/app/auth";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { formatearFechaHora } from "@/lib/fechas";
 
 export default async function AlmacenPage() {
   const session = await auth();
@@ -66,7 +67,7 @@ export default async function AlmacenPage() {
                 <div style={{ textAlign: "right" }}>
                   <p style={{ margin: 0, fontWeight: 700 }}>Estado: CREADO</p>
                   <p style={{ margin: "6px 0 0", color: "#475569" }}>
-                    {formatearFechaLocal(cotizacion.fechaCreacion)}
+                    {formatearFechaHora(cotizacion.fechaCreacion)}
                   </p>
                 </div>
               </div>
@@ -105,9 +106,3 @@ function formatearCop(valor: number) {
   }).format(valor);
 }
 
-function formatearFechaLocal(fecha: Date) {
-  return new Intl.DateTimeFormat("es-CO", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(fecha));
-}

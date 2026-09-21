@@ -11,6 +11,4 @@ export function formatearCop(valor: number) {
   return new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(valor);
 }
 
-export function formatearFecha(fecha: Date) {
-  return new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeStyle: "short" }).format(new Date(fecha));
-}
+export { formatearFechaHora as formatearFecha } from "@/lib/fechas";

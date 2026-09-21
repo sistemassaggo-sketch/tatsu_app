@@ -2,11 +2,11 @@ import prisma from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { randomBytes } from "node:crypto";
 import { auth } from "@/app/auth";
+import { fechaCodigoColombia } from "@/lib/fechas";
 import { registrarEventoAuditoria } from "@/lib/auditoria";
 
 function generarCodigoCotizacion() {
-  const fecha = new Date();
-  const fechaCodigo = fecha.toISOString().slice(0, 10).replace(/-/g, "");
+  const fechaCodigo = fechaCodigoColombia();
   const randomParte = randomBytes(4).toString("hex").toUpperCase();
   return `COT-${fechaCodigo}-${randomParte}`;
 }
@@ -33,7 +33,6 @@ export async function POST(request: Request) {
     const items: ItemCotizacionEntrada[] = Array.isArray(cuerpo.items) ? cuerpo.items : [];
     const descuentoActivo = Boolean(cuerpo.descuentoActivo);
     const descuentoPorcentaje = Number(cuerpo.descuentoPorcentaje ?? 0);
-    const fechaLocal = new Date(Date.now() - new Date().getTimezoneOffset() * 60 * 1000);
 
     if (!Number.isFinite(descuentoPorcentaje) || descuentoPorcentaje < 0 || descuentoPorcentaje > 100) {
       return NextResponse.json({ message: "El descuento debe estar entre 0 y 100." }, { status: 400 });
@@ -104,7 +103,6 @@ export async function POST(request: Request) {
         descuentoActivo,
         descuentoPorc: descuentoActivo ? descuentoPorcentaje : 0,
         total,
-        fechaCreacion: fechaLocal,
         items: {
           create: productosParaGuardar.map((item) => ({
             productoId: item.productoId,

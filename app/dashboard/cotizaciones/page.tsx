@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 import { auth } from "@/app/auth";
 import prisma from "@/lib/prisma";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import ClienteSelector from "./ClienteSelector";
 import ProductosCotizacion from "./ProductosCotizacion";
@@ -78,7 +79,7 @@ export default async function CotizacionesPage({
       <section style={estiloSeccion}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <h2 style={estiloTitulo}>Cotización</h2>
-        <a href="/dashboard/cotizaciones/historial" style={estiloBotonSecundario}>Historial cotizaciones</a>
+        <Link href="/dashboard/cotizaciones/historial" style={estiloBotonSecundario}>Historial cotizaciones</Link>
       </div>
       <p style={{ color: "#475569", lineHeight: 1.7, marginBottom: 24 }}>
         Selecciona un cliente, busca productos por código o descripción general y agrega los que quieras al carrito.

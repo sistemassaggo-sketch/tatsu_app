@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 import { auth } from "@/app/auth";
 import prisma from "@/lib/prisma";
 import { redirect } from "next/navigation";
+import { formatearFechaHora } from "@/lib/fechas";
 
 export default async function AuditoriaPage() {
   const sesion = await auth();
@@ -48,7 +49,7 @@ export default async function AuditoriaPage() {
             <tbody>
               {eventos.map((evento) => (
                 <tr key={evento.id} style={{ borderBottom: "1px solid #e2e8f0" }}>
-                  <td style={estiloCelda}>{formatearFechaLocal(evento.fechaHora)}</td>
+                  <td style={estiloCelda}>{formatearFechaHora(evento.fechaHora)}</td>
                   <td style={estiloCelda}>{evento.usuario}</td>
                   <td style={estiloCelda}>{evento.ip ?? "Desconocida"}</td>
                   <td style={estiloCelda}>
@@ -81,13 +82,6 @@ export default async function AuditoriaPage() {
   );
 }
 
-function formatearFechaLocal(fecha: Date) {
-  return new Intl.DateTimeFormat("es-CO", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: "America/Bogota",
-  }).format(new Date(fecha));
-}
 
 function obtenerColorAccion(accion: string) {
   switch (accion) {

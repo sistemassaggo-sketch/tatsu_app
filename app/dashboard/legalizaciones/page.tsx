@@ -2,6 +2,7 @@ import { auth } from "@/app/auth";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { formatearFechaHora } from "@/lib/fechas";
 
 export default async function LegalizacionesPage({
   searchParams,
@@ -87,7 +88,7 @@ export default async function LegalizacionesPage({
                 </div>
                 <div style={{ textAlign: "right" }}>
                   <p style={{ margin: 0, fontWeight: 700 }}>Estado: LEGALIZADO</p>
-                  <p style={{ margin: "6px 0 0", color: "#475569" }}>{formatearFechaLocal(cotizacion.fechaCreacion)}</p>
+                  <p style={{ margin: "6px 0 0", color: "#475569" }}>{formatearFechaHora(cotizacion.fechaCreacion)}</p>
                 </div>
               </div>
 
@@ -121,6 +122,3 @@ function formatearCop(valor: number) {
   return new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(valor);
 }
 
-function formatearFechaLocal(fecha: Date) {
-  return new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeStyle: "short" }).format(new Date(fecha));
-}

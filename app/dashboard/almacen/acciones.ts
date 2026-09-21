@@ -5,43 +5,14 @@ import { auth } from "@/app/auth";
 import prisma from "@/lib/prisma";
 import { randomBytes } from "node:crypto";
 import { registrarEventoAuditoria } from "@/lib/auditoria";
+import { fechaCodigoColombia } from "@/lib/fechas";
 
 function generarCodigoLegalizacion() {
-  const fechaCodigo = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+  const fechaCodigo = fechaCodigoColombia();
   return `LEG-${fechaCodigo}-${randomBytes(4).toString("hex").toUpperCase()}`;
 }
 
 const permisosPermitidos = ["admin", "almacen"] as const;
-
-function obtenerFechaColombiaActual() {
-  const ahora = new Date();
-  const formateador = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Bogota",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  });
-
-  const partes = Object.fromEntries(
-    formateador
-      .formatToParts(ahora)
-      .filter((parte) => parte.type !== "literal")
-      .map((parte) => [parte.type, parte.value]),
-  );
-
-  const anno = Number(partes.year ?? ahora.getFullYear());
-  const mes = Number(partes.month ?? ahora.getMonth() + 1);
-  const dia = Number(partes.day ?? ahora.getDate());
-  const hora = Number(partes.hour ?? ahora.getHours());
-  const minuto = Number(partes.minute ?? ahora.getMinutes());
-  const segundo = Number(partes.second ?? ahora.getSeconds());
-
-  return new Date(anno, mes - 1, dia, hora, minuto, segundo);
-}
 
 export type EstadoAccionAlmacen = { ok: boolean; mensaje: string } | null;
 
@@ -110,7 +81,7 @@ export async function actualizarCotizacionAlmacen(
   const porcentajeDescuento = cotizacion.descuentoActivo ? Number(cotizacion.descuentoPorc ?? 0) : 0;
   const nuevoTotal = subtotal - (subtotal * porcentajeDescuento) / 100;
   const estadoSiguiente = porcentajeDescuento > 0 ? "REVISION_ALMACEN" : "LEGALIZADO";
-  const fechaEliminacion = obtenerFechaColombiaActual();
+  const fechaEliminacion = new Date();
 
   const actualizada = await prisma.$transaction(async (tx) => {
     const cambioEstado = await tx.cotizacion.updateMany({

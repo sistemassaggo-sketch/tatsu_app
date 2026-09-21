@@ -2,6 +2,7 @@ import { auth } from "@/app/auth";
 import prisma from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { aprobarCotizacion, cancelarCotizacion } from "../almacen/acciones";
+import { formatearFechaHora } from "@/lib/fechas";
 
 export default async function AprobacionPreciosPage() {
   const sesion = await auth();
@@ -63,7 +64,7 @@ export default async function AprobacionPreciosPage() {
                 </div>
                 <div style={{ textAlign: "right" }}>
                   <p style={{ margin: 0, fontWeight: 700 }}>Estado: REVISION_ALMACEN</p>
-                  <p style={{ margin: "6px 0 0", color: "#475569" }}>{formatearFechaLocal(cotizacion.fechaCreacion)}</p>
+                  <p style={{ margin: "6px 0 0", color: "#475569" }}>{formatearFechaHora(cotizacion.fechaCreacion)}</p>
                 </div>
               </div>
 
@@ -151,9 +152,3 @@ function formatearCop(valor: number) {
   }).format(valor);
 }
 
-function formatearFechaLocal(fecha: Date) {
-  return new Intl.DateTimeFormat("es-CO", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(fecha));
-}
