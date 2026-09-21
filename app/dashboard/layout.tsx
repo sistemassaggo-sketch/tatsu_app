@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { useState, type ReactNode } from "react";
 import { STORAGE_KEY } from "@/store/cotizacion";
@@ -21,6 +21,7 @@ const menuItems = [
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const { data: session } = useSession();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const nombreUsuario = session?.user?.username ?? session?.user?.name ?? "Usuario";
@@ -127,7 +128,12 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
               if (typeof window !== "undefined") {
                 window.localStorage.removeItem(STORAGE_KEY);
               }
-              void signOut({ callbackUrl: "/" });
+              // Sin redirección del servidor: se vuelve al login del mismo dominio en que está el usuario,
+              // sin depender de NEXTAUTH_URL.
+              void signOut({ redirect: false }).finally(() => {
+                router.replace("/");
+                router.refresh();
+              });
             }}
             style={{ margin: 0 }}
           >
