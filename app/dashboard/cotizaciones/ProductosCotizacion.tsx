@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState, type CSSProperties } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { agregarProducto, type RootState } from "@/store/cotizacion";
@@ -57,7 +58,7 @@ export default function ProductosCotizacion({ productos }: { productos: Producto
                     }}
                   >
                     {producto.urlId ? (
-                      <img src={producto.urlId} alt={producto.codigo} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      <Image src={producto.urlId} alt={producto.codigo} fill sizes="72px" style={{ objectFit: "cover" }} />
                     ) : (
                       <span style={{ fontSize: 22 }}>📦</span>
                     )}
@@ -173,12 +174,14 @@ export default function ProductosCotizacion({ productos }: { productos: Producto
               ×
             </button>
 
-            <div style={{ width: "100%", aspectRatio: "4 / 3", background: "#eef6fb", display: "grid", placeItems: "center" }}>
+            <div style={{ width: "100%", aspectRatio: "4 / 3", background: "#eef6fb", display: "grid", placeItems: "center", position: "relative" }}>
               {productoSeleccionado.urlId ? (
-                <img
+                <Image
                   src={productoSeleccionado.urlId}
                   alt={productoSeleccionado.codigo}
-                  style={{ width: "100%", height: "100%", objectFit: "contain" }}
+                  fill
+                  sizes="(max-width: 700px) 92vw, 640px"
+                  style={{ objectFit: "contain" }}
                 />
               ) : (
                 <span style={{ fontSize: 52 }}>📦</span>

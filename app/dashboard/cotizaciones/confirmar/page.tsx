@@ -1,6 +1,7 @@
 "use client";
 
 import type { CSSProperties } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSelector, useDispatch } from "react-redux";
@@ -158,9 +159,9 @@ export default function ConfirmarCotizacionPage() {
           {items.map((item) => (
             <article key={item.id} style={estiloProductoFila}>
               <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-                <div style={{ width: 64, height: 64, borderRadius: 12, background: "#eef6fb", display: "grid", placeItems: "center", overflow: "hidden" }}>
+                <div style={{ width: 64, height: 64, borderRadius: 12, background: "#eef6fb", display: "grid", placeItems: "center", overflow: "hidden", position: "relative" }}>
                   {item.imagen ? (
-                    <img src={item.imagen} alt={item.codigo} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    <Image src={item.imagen} alt={item.codigo} fill sizes="64px" style={{ objectFit: "cover" }} />
                   ) : (
                     <span>📦</span>
                   )}
