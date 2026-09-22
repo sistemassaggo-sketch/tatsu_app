@@ -116,7 +116,7 @@ export default async function CotizacionesPage({
 
       <div style={{ display: "grid", gap: 24, gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 360px), 1fr))", alignItems: "start" }}>
         <div style={{ display: "grid", gap: 20, minWidth: 0 }}>
-          <ClienteSelector clientes={clientes} clienteFijo={clienteFijo ?? undefined} />
+          <ClienteSelector clientes={clientes} />
 
           <BuscadorProductosCotizacion />
 

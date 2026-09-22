@@ -8,6 +8,11 @@ type Cliente = {
   nombre: string;
 };
 
+type ClienteFijo = {
+  id: number;
+  nombre: string;
+} | null;
+
 export default function ClienteSelector({ clientes }: { clientes: Cliente[] }) {
   const dispatch = useDispatch();
   const clienteSeleccionado = useSelector((state: RootState) => state.cotizacion.cliente);
