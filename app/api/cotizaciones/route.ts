@@ -24,18 +24,38 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: "No autorizado." }, { status: 401 });
     }
 
-    if (!["admin", "comercial"].includes(sesion.user.role ?? "")) {
+    if (!["admin", "comercial", "cliente"].includes(sesion.user.role ?? "")) {
       return NextResponse.json({ message: "No tienes permisos para crear cotizaciones." }, { status: 403 });
     }
 
+    const esRolCliente = sesion.user.role === "cliente";
+
     const cuerpo = await request.json();
-    const clienteId = Number(cuerpo.clienteId);
+    let clienteId = Number(cuerpo.clienteId);
     const items: ItemCotizacionEntrada[] = Array.isArray(cuerpo.items) ? cuerpo.items : [];
-    const descuentoActivo = Boolean(cuerpo.descuentoActivo);
+    // El rol "cliente" nunca puede cotizar como minorista, sin importar lo que llegue en la petición.
+    const esMinorista = !esRolCliente && Boolean(cuerpo.esMinorista);
+    // Minorista y descuento son excluyentes: si es minorista no se toma descuento.
+    const descuentoActivo = !esMinorista && Boolean(cuerpo.descuentoActivo);
     const descuentoPorcentaje = Number(cuerpo.descuentoPorcentaje ?? 0);
 
     if (!Number.isFinite(descuentoPorcentaje) || descuentoPorcentaje < 0 || descuentoPorcentaje > 100) {
       return NextResponse.json({ message: "El descuento debe estar entre 0 y 100." }, { status: 400 });
+    }
+
+    // Vendedor = el usuario con sesión iniciada (también resuelve el cliente propio del rol "cliente").
+    const nombreUsuarioSesion = sesion.user.username ?? "";
+    const usuarioSesion = nombreUsuarioSesion
+      ? await prisma.usuario.findUnique({ where: { username: nombreUsuarioSesion }, select: { id: true, clienteId: true } })
+      : null;
+
+    if (esRolCliente) {
+      // Nunca se confía en el clienteId que venga del cliente: siempre es el propio, asociado al usuario.
+      if (!usuarioSesion?.clienteId) {
+        return NextResponse.json({ message: "Tu usuario no tiene un cliente asociado." }, { status: 403 });
+      }
+
+      clienteId = usuarioSesion.clienteId;
     }
 
     if (!Number.isInteger(clienteId) || clienteId <= 0) {
@@ -73,6 +93,14 @@ export async function POST(request: Request) {
           throw new Error(`El producto ${producto.id} no tiene precio base.`);
         }
 
+        if (!producto.disponibilidad) {
+          throw new Error(`El producto ${producto.codigo} no está disponible.`);
+        }
+
+        if (producto.existencias < cantidad) {
+          throw new Error(`El producto ${producto.codigo} no tiene existencias suficientes (disponibles: ${producto.existencias}).`);
+        }
+
         return {
           productoId,
           cantidad,
@@ -86,13 +114,8 @@ export async function POST(request: Request) {
       0,
     );
     const descuento = descuentoActivo ? (subtotal * descuentoPorcentaje) / 100 : 0;
-    const total = subtotal - descuento;
-
-    // Vendedor = el usuario con sesión iniciada.
-    const nombreUsuarioSesion = sesion.user.username ?? "";
-    const usuarioSesion = nombreUsuarioSesion
-      ? await prisma.usuario.findUnique({ where: { username: nombreUsuarioSesion }, select: { id: true } })
-      : null;
+    // Minorista duplica el total en vez de aplicar descuento.
+    const total = esMinorista ? subtotal * 2 : subtotal - descuento;
 
     const cotizacion = await prisma.cotizacion.create({
       data: {
@@ -100,6 +123,7 @@ export async function POST(request: Request) {
         vendedorId: usuarioSesion?.id ?? null,
         clienteId,
         estado: "CREADO",
+        esMinorista,
         descuentoActivo,
         descuentoPorc: descuentoActivo ? descuentoPorcentaje : 0,
         total,

@@ -10,13 +10,15 @@ import {
   eliminarProducto,
   activarDescuento,
   cambiarDescuento,
+  activarMinorista,
   type RootState,
 } from "@/store/cotizacion";
 
 export default function CarritoCotizacion() {
   const dispatch = useDispatch();
-  const { items, cliente, descuentoActivo, descuentoPorcentaje } = useSelector((state: RootState) => state.cotizacion);
-  const [mostrarDescuento, setMostrarDescuento] = useState(descuentoActivo);
+  const { items, cliente, descuentoActivo, descuentoPorcentaje, esMinorista } = useSelector(
+    (state: RootState) => state.cotizacion,
+  );
   const [cantidadesEditadas, setCantidadesEditadas] = useState<Record<number, string>>({});
 
   useEffect(() => {
@@ -26,8 +28,9 @@ export default function CarritoCotizacion() {
   }, [items]);
 
   const subtotal = items.reduce((total, item) => total + item.precio * item.cantidad, 0);
-  const descuento = descuentoActivo ? (subtotal * descuentoPorcentaje) / 100 : 0;
-  const total = subtotal - descuento;
+  // Minorista y descuento son excluyentes: si es minorista no se toma descuento y el total se duplica.
+  const descuento = !esMinorista && descuentoActivo ? (subtotal * descuentoPorcentaje) / 100 : 0;
+  const total = esMinorista ? subtotal * 2 : subtotal - descuento;
 
   if (items.length === 0) {
     return (
@@ -87,7 +90,8 @@ export default function CarritoCotizacion() {
               </label>
 
               <div style={{ textAlign: "right" }}>
-                <p style={{ fontWeight: 800, color: "#176B87" }}>{formatearCop(item.precio * item.cantidad)}</p>
+                <p style={{ color: "#475569", fontSize: 13 }}>Precio unitario: {formatearCop(item.precio)}</p>
+                <p style={{ fontWeight: 800, color: "#176B87" }}>Total: {formatearCop(item.precio * item.cantidad)}</p>
                 <button type="button" onClick={() => dispatch(eliminarProducto(item.id))} style={estiloBotonEliminar}>
                   Eliminar
                 </button>
@@ -97,51 +101,61 @@ export default function CarritoCotizacion() {
         ))}
 
         <div style={{ border: "1px solid #e2e8f0", borderRadius: 12, padding: 18, display: "grid", gap: 14 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-            <strong>Descuento</strong>
-            <button
-              type="button"
-              onClick={() => {
-                const activo = !mostrarDescuento;
-                setMostrarDescuento(activo);
-                dispatch(activarDescuento(activo));
-              }}
-              style={{
-                ...estiloBotonSecundario,
-                background: mostrarDescuento ? "#176B87" : "#fff",
-                color: mostrarDescuento ? "#fff" : "#176B87",
-              }}
-            >
-              {mostrarDescuento ? "Desactivar" : "Activar"}
-            </button>
-          </div>
+          <label style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: 700, cursor: "pointer" }}>
+            <input
+              type="checkbox"
+              checked={esMinorista}
+              onChange={(evento) => dispatch(activarMinorista(evento.target.checked))}
+              style={{ width: 18, height: 18 }}
+            />
+            Cotizar como minorista
+          </label>
 
-          {mostrarDescuento ? (
-            <label style={{ display: "grid", gap: 6, fontWeight: 700 }}>
-              % descuento
-              <input
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                placeholder="0"
-                value={descuentoPorcentaje > 0 ? String(descuentoPorcentaje) : ""}
-                onChange={(evento) => {
-                  const valorTexto = evento.target.value;
+          {!esMinorista ? (
+            <>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                <strong>Descuento</strong>
+                <button
+                  type="button"
+                  onClick={() => dispatch(activarDescuento(!descuentoActivo))}
+                  style={{
+                    ...estiloBotonSecundario,
+                    background: descuentoActivo ? "#176B87" : "#fff",
+                    color: descuentoActivo ? "#fff" : "#176B87",
+                  }}
+                >
+                  {descuentoActivo ? "Desactivar" : "Activar"}
+                </button>
+              </div>
 
-                  if (valorTexto === "") {
-                    dispatch(cambiarDescuento(0));
-                    return;
-                  }
+              {descuentoActivo ? (
+                <label style={{ display: "grid", gap: 6, fontWeight: 700 }}>
+                  % descuento
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    placeholder="0"
+                    value={descuentoPorcentaje > 0 ? String(descuentoPorcentaje) : ""}
+                    onChange={(evento) => {
+                      const valorTexto = evento.target.value;
 
-                  if (!/^(?:[0-9]|[1-9][0-9]|100)$/.test(valorTexto)) {
-                    return;
-                  }
+                      if (valorTexto === "") {
+                        dispatch(cambiarDescuento(0));
+                        return;
+                      }
 
-                  dispatch(cambiarDescuento(Number(valorTexto)));
-                }}
-                style={estiloCampo}
-              />
-            </label>
+                      if (!/^(?:[0-9]|[1-9][0-9]|100)$/.test(valorTexto)) {
+                        return;
+                      }
+
+                      dispatch(cambiarDescuento(Number(valorTexto)));
+                    }}
+                    style={estiloCampo}
+                  />
+                </label>
+              ) : null}
+            </>
           ) : null}
 
           <div style={{ display: "grid", gap: 8 }}>
@@ -149,10 +163,12 @@ export default function CarritoCotizacion() {
               <span>Subtotal</span>
               <strong>{formatearCop(subtotal)}</strong>
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <span>Descuento</span>
-              <strong>- {formatearCop(descuento)}</strong>
-            </div>
+            {!esMinorista ? (
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span>Descuento</span>
+                <strong>- {formatearCop(descuento)}</strong>
+              </div>
+            ) : null}
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 18, fontWeight: 800 }}>
               <span>Total</span>
               <span style={{ color: "#176B87" }}>{formatearCop(total)}</span>

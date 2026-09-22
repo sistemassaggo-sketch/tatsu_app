@@ -13,6 +13,7 @@ const menuItems = [
   { label: "Usuarios", href: "/dashboard/usuarios" },
   { label: "Clientes", href: "/dashboard/clientes" },
   { label: "Almacén", href: "/dashboard/almacen" },
+  { label: "Inventario", href: "/dashboard/inventario" },
   { label: "Legalizaciones", href: "/dashboard/legalizaciones" },
   { label: "Aprobación de precios", href: "/dashboard/aprobacion-precios" },
   { label: "Auditoría", href: "/dashboard/auditoria" },

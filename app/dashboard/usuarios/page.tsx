@@ -27,9 +27,14 @@ export default async function UsuariosPage({
   const filtroUsuarios = busqueda
     ? { username: { contains: busqueda, mode: "insensitive" as const } }
     : undefined;
-  const [roles, totalUsuarios, usuarios] = await Promise.all([
+  const [roles, clientes, totalUsuarios, usuarios] = await Promise.all([
     prisma.rol.findMany({
-      where: { nombre: { in: ["almacen", "comercial"] } },
+      where: { nombre: { in: ["almacen", "comercial", "cliente"] } },
+      select: { id: true, nombre: true },
+      orderBy: { nombre: "asc" },
+    }),
+    prisma.cliente.findMany({
+      where: { status: true },
       select: { id: true, nombre: true },
       orderBy: { nombre: "asc" },
     }),
@@ -43,6 +48,7 @@ export default async function UsuariosPage({
         status: true,
         debeRestablecerContrasena: true,
         rol: { select: { nombre: true } },
+        clienteAsociado: { select: { nombre: true } },
       },
       orderBy: { username: "asc" },
       skip: (paginaInicial - 1) * usuariosPorPagina,
@@ -65,9 +71,9 @@ export default async function UsuariosPage({
     >
       <h2 style={{ fontSize: "clamp(1.3rem, 2vw, 1.9rem)", marginBottom: 8 }}>Usuarios</h2>
       <p style={{ color: "#475569", lineHeight: 1.7, marginBottom: 24 }}>
-        Crea usuarios con permisos de almacén o comercial.
+        Crea usuarios con permisos de almacén, comercial o cliente.
       </p>
-      <FormularioUsuario roles={roles} />
+      <FormularioUsuario roles={roles} clientes={clientes} />
 
       <div style={{ marginTop: 36 }}>
         <h3 style={{ fontSize: "1.2rem", marginBottom: 14 }}>Usuarios registrados</h3>
@@ -98,6 +104,7 @@ export default async function UsuariosPage({
                 <strong>{usuario.username}</strong>
                 <p style={{ color: "#475569", margin: "5px 0 0" }}>
                   Vendedor: {usuario.nombre ?? "—"} · Rol: {usuario.rol.nombre} · Estado: {usuario.status ? "Activo" : "Inactivo"}
+                  {usuario.clienteAsociado ? ` · Cliente: ${usuario.clienteAsociado.nombre}` : ""}
                 </p>
               </div>
               <form action={cambiarEstadoUsuario}>

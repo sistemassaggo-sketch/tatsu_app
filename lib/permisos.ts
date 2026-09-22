@@ -3,6 +3,8 @@
 const modulosPorRol: Record<string, string[]> = {
   almacen: ["/dashboard/almacen", "/dashboard/legalizaciones"],
   comercial: ["/dashboard/cotizaciones", "/dashboard/legalizaciones"],
+  // El rol "cliente" solo cotiza para su propio cliente asociado y no puede usar la opción minorista.
+  cliente: ["/dashboard/cotizaciones"],
 };
 
 export function puedeAccederARuta(rol: string | null | undefined, ruta: string) {

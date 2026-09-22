@@ -17,22 +17,36 @@ export default async function CotizacionesPage({
   searchParams: Promise<{ busqueda?: string; pagina?: string }>; 
 }) {
   const session = await auth();
+  const rolUsuario = session?.user?.role ?? "";
 
-  if (!["admin", "comercial"].includes(session?.user?.role ?? "")) {
+  if (!["admin", "comercial", "cliente"].includes(rolUsuario)) {
     redirect("/dashboard");
   }
+
+  const esRolCliente = rolUsuario === "cliente";
 
   const parametros = await searchParams;
   const busqueda = parametros.busqueda?.trim() ?? "";
   const paginaSolicitada = Number(parametros.pagina ?? "1");
   const paginaActual = Number.isInteger(paginaSolicitada) && paginaSolicitada > 0 ? paginaSolicitada : 1;
 
-  const [clientes, totalProductos, productosBase] = await Promise.all([
-    prisma.cliente.findMany({
-      where: { status: true },
-      select: { id: true, nombre: true },
-      orderBy: { nombre: "asc" },
-    }),
+  // El rol "cliente" no elige cliente: cotiza siempre para el suyo propio, asociado a su usuario.
+  const [clienteFijo, clientes, totalProductos, productosBase] = await Promise.all([
+    esRolCliente
+      ? prisma.usuario
+          .findUnique({
+            where: { username: session?.user?.username ?? "" },
+            select: { clienteAsociado: { select: { id: true, nombre: true } } },
+          })
+          .then((usuario) => usuario?.clienteAsociado ?? null)
+      : Promise.resolve(null),
+    esRolCliente
+      ? Promise.resolve([])
+      : prisma.cliente.findMany({
+          where: { status: true },
+          select: { id: true, nombre: true },
+          orderBy: { nombre: "asc" },
+        }),
     prisma.producto.count({
       where: busqueda
         ? {
@@ -73,21 +87,36 @@ export default async function CotizacionesPage({
   const totalPaginas = Math.max(1, Math.ceil(totalProductos / productosPorPagina));
   const paginaValida = Math.min(paginaActual, totalPaginas);
 
+  if (esRolCliente && !clienteFijo) {
+    return (
+      <section style={estiloSeccion}>
+        <h2 style={estiloTitulo}>Cotización</h2>
+        <p style={{ color: "#475569", lineHeight: 1.7 }}>
+          Tu usuario no tiene un cliente asociado. Contacta a un administrador para poder cotizar.
+        </p>
+      </section>
+    );
+  }
+
   return (
     <>
       <BotonIrArriba />
       <section style={estiloSeccion}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <h2 style={estiloTitulo}>Cotización</h2>
-        <Link href="/dashboard/cotizaciones/historial" style={estiloBotonSecundario}>Historial cotizaciones</Link>
+        {!esRolCliente ? (
+          <Link href="/dashboard/cotizaciones/historial" style={estiloBotonSecundario}>Historial cotizaciones</Link>
+        ) : null}
       </div>
       <p style={{ color: "#475569", lineHeight: 1.7, marginBottom: 24 }}>
-        Selecciona un cliente, busca productos por código o descripción general y agrega los que quieras al carrito.
+        {esRolCliente
+          ? "Busca productos por código o descripción general y agrégalos al carrito."
+          : "Selecciona un cliente, busca productos por código o descripción general y agrega los que quieras al carrito."}
       </p>
 
       <div style={{ display: "grid", gap: 24, gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 360px), 1fr))", alignItems: "start" }}>
         <div style={{ display: "grid", gap: 20, minWidth: 0 }}>
-          <ClienteSelector clientes={clientes} />
+          <ClienteSelector clientes={clientes} clienteFijo={clienteFijo ?? undefined} />
 
           <BuscadorProductosCotizacion />
 

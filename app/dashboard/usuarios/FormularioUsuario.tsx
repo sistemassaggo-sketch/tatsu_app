@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { crearUsuario, type EstadoFormularioUsuario } from "./acciones";
 
 const estadoInicial: EstadoFormularioUsuario = {};
@@ -10,8 +10,22 @@ type RolFormulario = {
   nombre: string;
 };
 
-export default function FormularioUsuario({ roles }: { roles: RolFormulario[] }) {
+type ClienteFormulario = {
+  id: number;
+  nombre: string;
+};
+
+const etiquetasRol: Record<string, string> = {
+  almacen: "Almacén",
+  comercial: "Comercial",
+  cliente: "Cliente",
+};
+
+export default function FormularioUsuario({ roles, clientes }: { roles: RolFormulario[]; clientes: ClienteFormulario[] }) {
   const [estado, accion, estaEnviando] = useActionState(crearUsuario, estadoInicial);
+  const [rolIdSeleccionado, setRolIdSeleccionado] = useState("");
+  const rolSeleccionado = roles.find((rol) => String(rol.id) === rolIdSeleccionado);
+  const esRolCliente = rolSeleccionado?.nombre === "cliente";
 
   return (
     <form action={accion} style={{ display: "grid", gap: 18, maxWidth: 520 }}>
@@ -54,17 +68,39 @@ export default function FormularioUsuario({ roles }: { roles: RolFormulario[] })
 
       <label style={{ display: "grid", gap: 7, fontWeight: 700 }}>
         Rol
-        <select name="rolId" defaultValue="" required style={estiloCampo}>
+        <select
+          name="rolId"
+          value={rolIdSeleccionado}
+          onChange={(evento) => setRolIdSeleccionado(evento.target.value)}
+          required
+          style={estiloCampo}
+        >
           <option value="" disabled>
             Selecciona un rol
           </option>
           {roles.map((rol) => (
             <option key={rol.id} value={rol.id}>
-              {rol.nombre === "almacen" ? "Almacén" : "Comercial"}
+              {etiquetasRol[rol.nombre] ?? rol.nombre}
             </option>
           ))}
         </select>
       </label>
+
+      {esRolCliente ? (
+        <label style={{ display: "grid", gap: 7, fontWeight: 700 }}>
+          Cliente asociado
+          <select name="clienteId" defaultValue="" required style={estiloCampo}>
+            <option value="" disabled>
+              Selecciona un cliente
+            </option>
+            {clientes.map((cliente) => (
+              <option key={cliente.id} value={cliente.id}>
+                {cliente.nombre}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
 
       {estado.error ? <p style={{ color: "#b42318", margin: 0 }}>{estado.error}</p> : null}
       {estado.exito ? <p style={{ color: "#087443", margin: 0 }}>{estado.exito}</p> : null}

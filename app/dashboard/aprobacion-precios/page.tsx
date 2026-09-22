@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { aprobarCotizacion, cancelarCotizacion } from "../almacen/acciones";
 import { formatearFechaHora } from "@/lib/fechas";
+import BotonAccionCotizacion from "./BotonAccionCotizacion";
 
 export default async function AprobacionPreciosPage() {
   const sesion = await auth();
@@ -99,41 +100,18 @@ export default async function AprobacionPreciosPage() {
                 </strong>
 
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                  <form action={aprobarCotizacion}>
-                    <input type="hidden" name="cotizacionId" value={cotizacion.id} />
-                    <button
-                      type="submit"
-                      style={{
-                        border: "none",
-                        borderRadius: 8,
-                        background: "#087443",
-                        color: "#fff",
-                        padding: "10px 14px",
-                        fontWeight: 700,
-                        cursor: "pointer",
-                      }}
-                    >
-                      Aprobar cotización
-                    </button>
-                  </form>
-
-                  <form action={cancelarCotizacion}>
-                    <input type="hidden" name="cotizacionId" value={cotizacion.id} />
-                    <button
-                      type="submit"
-                      style={{
-                        border: "none",
-                        borderRadius: 8,
-                        background: "#b42318",
-                        color: "#fff",
-                        padding: "10px 14px",
-                        fontWeight: 700,
-                        cursor: "pointer",
-                      }}
-                    >
-                      Cancelar cotización
-                    </button>
-                  </form>
+                  <BotonAccionCotizacion
+                    cotizacionId={cotizacion.id}
+                    etiqueta="Aprobar cotización"
+                    color="#087443"
+                    accion={aprobarCotizacion}
+                  />
+                  <BotonAccionCotizacion
+                    cotizacionId={cotizacion.id}
+                    etiqueta="Cancelar cotización"
+                    color="#b42318"
+                    accion={cancelarCotizacion}
+                  />
                 </div>
               </div>
             </article>

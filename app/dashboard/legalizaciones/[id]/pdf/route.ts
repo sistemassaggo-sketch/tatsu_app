@@ -34,6 +34,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const bytes = await generarPdfDocumento({
     titulo: "DOCUMENTO EQUIVALENTE A LEGALIZACIÓN",
     codigo,
+    cotizacionId: cotizacion.id,
     fecha: cotizacion.fechaCreacion,
     vendedor: cotizacion.vendedor?.nombre ?? cotizacion.vendedor?.username ?? "-",
     cliente: cotizacion.cliente,

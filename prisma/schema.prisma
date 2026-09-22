@@ -16,33 +16,37 @@ model Rol {
 }
 
 model Usuario {
-  id                        Int     @id @default(autoincrement())
-  username                  String  @unique @db.VarChar(100)
-  password                  String  @db.VarChar(255)
-  rolId                     Int     @map("rol_id")
-  rol                       Rol     @relation(fields: [rolId], references: [id])
-  status                    Boolean @default(true)
-  debeRestablecerContrasena Boolean @default(false) @map("debe_restablecer_contrasena")
-  nombre                    String? @db.VarChar(150)
+  id                        Int          @id @default(autoincrement())
+  username                  String       @unique @db.VarChar(100)
+  password                  String       @db.VarChar(255)
+  rolId                     Int          @map("rol_id")
+  status                    Boolean      @default(true)
+  debeRestablecerContrasena Boolean      @default(false) @map("debe_restablecer_contrasena")
+  nombre                    String?      @db.VarChar(150)
+  clienteId                 Int?         @map("cliente_id")
   cotizaciones              Cotizacion[]
+  clienteAsociado           Cliente?     @relation(fields: [clienteId], references: [id])
+  rol                       Rol          @relation(fields: [rolId], references: [id])
 
+  @@index([clienteId])
   @@map("usuarios")
 }
 
 model Producto {
   id                  Int              @id @default(autoincrement())
   codigo              String           @db.VarChar(100)
-  descripcionOriginal String           @map("descripcion_original") @db.Text
+  descripcionOriginal String           @map("descripcion_original")
   casaFamilia         String?          @map("casa_familia") @db.VarChar(150)
   linea               String?          @db.VarChar(150)
   cilindraje          Int?
   version             String?          @db.VarChar(150)
   tipoAcabado         String?          @map("tipo_acabado") @db.VarChar(150)
-  detalles            String?          @db.Text
+  detalles            String?
   lineaOriginal       String?          @map("linea_original") @db.VarChar(150)
   precioBaseCop       Decimal?         @map("precio_base_cop") @db.Decimal(15, 2)
   disponibilidad      Boolean          @default(true)
-  urlId               String?          @map("url_id") @db.Text
+  urlId               String?          @map("url_id")
+  existencias         Int              @default(0)
   itemsCotizacion     ItemCotizacion[]
 
   @@map("productos")
@@ -57,31 +61,29 @@ model Cliente {
   ciudad          String       @db.VarChar(100)
   status          Boolean      @default(true)
   cotizaciones    Cotizacion[]
+  usuarios        Usuario[]
 
   @@map("clientes")
-}
-
-enum EstadoCotizacion {
-  CREADO
-  REVISION_ALMACEN
-  APROBACION_PRECIO
-  NO_APROBADO
-  LEGALIZADO
 }
 
 model Cotizacion {
   id                 Int              @id @default(autoincrement())
   codigo             String           @unique @db.VarChar(50)
-  codigoLegalizacion String?          @unique @map("codigo_legalizacion") @db.VarChar(50)
-  vendedorId         Int?             @map("vendedor")
-  vendedor           Usuario?         @relation(fields: [vendedorId], references: [id])
   clienteId          Int              @map("cliente_id")
-  cliente            Cliente          @relation(fields: [clienteId], references: [id])
-  estado             EstadoCotizacion @default(CREADO)
   descuentoActivo    Boolean          @default(false) @map("descuento_activo")
   descuentoPorc      Decimal?         @map("descuento_porc") @db.Decimal(5, 2)
   total              Decimal?         @db.Decimal(15, 2)
   fechaCreacion      DateTime         @default(now()) @map("fecha_creacion")
+  estado             EstadoCotizacion @default(CREADO)
+  eliminado          Boolean          @default(false)
+  eliminado_por      String?          @db.VarChar(150)
+  fecha_eliminacion  DateTime?
+  codigoLegalizacion String?          @unique @map("codigo_legalizacion") @db.VarChar(50)
+  vendedorId         Int?             @map("vendedor")
+  fechaLegalizacion  DateTime?        @map("fecha_legalizacion")
+  esMinorista        Boolean          @default(false) @map("es_minorista")
+  cliente            Cliente          @relation(fields: [clienteId], references: [id])
+  vendedor           Usuario?         @relation(fields: [vendedorId], references: [id])
   items              ItemCotizacion[]
 
   @@index([estado, fechaCreacion])
@@ -91,15 +93,15 @@ model Cotizacion {
 model ItemCotizacion {
   id               Int        @id @default(autoincrement())
   cotizacionId     Int        @map("cotizacion_id")
-  cotizacion       Cotizacion @relation(fields: [cotizacionId], references: [id], onDelete: Cascade)
   productoId       Int        @map("producto_id")
-  producto         Producto   @relation(fields: [productoId], references: [id])
   cantidad         Int        @default(1)
   precioUnitario   Decimal    @map("precio_unitario") @db.Decimal(15, 2)
   subtotal         Decimal    @db.Decimal(15, 2)
   eliminado        Boolean    @default(false)
   eliminadoPor     String?    @map("eliminado_por") @db.VarChar(100)
   fechaEliminacion DateTime?  @map("fecha_eliminacion")
+  cotizacion       Cotizacion @relation(fields: [cotizacionId], references: [id], onDelete: Cascade)
+  producto         Producto   @relation(fields: [productoId], references: [id])
 
   @@index([cotizacionId])
   @@index([productoId])
@@ -111,11 +113,19 @@ model AuditoriaEvento {
   usuario     String   @db.VarChar(100)
   usuarioId   Int?     @map("usuario_id")
   accion      String   @db.VarChar(100)
-  descripcion String   @db.Text
+  descripcion String
   ip          String?  @db.VarChar(50)
   recurso     String   @db.VarChar(80)
   recursoId   Int?     @map("recurso_id")
-  fechaHora   DateTime @default(now()) @map("fecha_hora")
+  fechaHora   DateTime @default(now()) @map("fecha_hora") @db.Timestamptz(3)
 
   @@map("auditoria_eventos")
+}
+
+enum EstadoCotizacion {
+  CREADO
+  REVISION_ALMACEN
+  APROBACION_PRECIO
+  NO_APROBADO
+  LEGALIZADO
 }

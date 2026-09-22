@@ -6,7 +6,7 @@ import prisma from "@/lib/prisma";
 import { cifrarContrasena } from "@/lib/contrasenas";
 import { registrarEventoAuditoria } from "@/lib/auditoria";
 
-const rolesPermitidos = ["almacen", "comercial"] as const;
+const rolesPermitidos = ["almacen", "comercial", "cliente"] as const;
 
 export type EstadoFormularioUsuario = {
   error?: string;
@@ -27,6 +27,7 @@ export async function crearUsuario(
   const password = String(datosFormulario.get("password") ?? "");
   const rolId = Number(datosFormulario.get("rolId"));
   const nombre = String(datosFormulario.get("vendedor") ?? "").trim();
+  const clienteIdTexto = String(datosFormulario.get("clienteId") ?? "").trim();
 
   if (!username || !password || !nombre || !Number.isInteger(rolId)) {
     return { error: "Completa usuario, contraseña, vendedor y rol." };
@@ -49,12 +50,30 @@ export async function crearUsuario(
       return { error: "El rol seleccionado no está permitido." };
     }
 
+    // El rol "cliente" siempre debe quedar asociado a un cliente existente; los demás roles no llevan cliente.
+    let clienteId: number | null = null;
+
+    if (rol.nombre === "cliente") {
+      clienteId = Number(clienteIdTexto);
+
+      if (!clienteIdTexto || !Number.isInteger(clienteId)) {
+        return { error: "Selecciona el cliente con el que se debe asociar este usuario." };
+      }
+
+      const clienteExiste = await prisma.cliente.findUnique({ where: { id: clienteId } });
+
+      if (!clienteExiste) {
+        return { error: "El cliente seleccionado no existe." };
+      }
+    }
+
     await prisma.usuario.create({
       data: {
         username,
         password: cifrarContrasena(password),
         nombre,
         rolId,
+        clienteId,
       },
     });
 

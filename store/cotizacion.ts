@@ -19,6 +19,7 @@ type EstadoCotizacion = {
   items: ProductoCotizacion[];
   descuentoActivo: boolean;
   descuentoPorcentaje: number;
+  esMinorista: boolean;
 };
 
 const estadoInicial: EstadoCotizacion = {
@@ -26,6 +27,7 @@ const estadoInicial: EstadoCotizacion = {
   items: [],
   descuentoActivo: false,
   descuentoPorcentaje: 0,
+  esMinorista: false,
 };
 
 export const STORAGE_KEY = "cotizacion_estado";
@@ -49,20 +51,22 @@ export function leerEstadoPersistido(): EstadoCotizacion {
       items: Array.isArray(estadoParseado.items) ? estadoParseado.items : [],
       descuentoActivo: Boolean(estadoParseado.descuentoActivo),
       descuentoPorcentaje: Number(estadoParseado.descuentoPorcentaje ?? 0),
+      esMinorista: Boolean(estadoParseado.esMinorista),
     };
   } catch {
     return estadoInicial;
   }
 }
 
-function cargarEstadoPersistido(): EstadoCotizacion {
-  return leerEstadoPersistido();
-}
-
 const sliceCotizacion = createSlice({
   name: "cotizacion",
   initialState: estadoInicial,
   reducers: {
+    // Reemplaza todo el estado por el guardado en localStorage. Se despacha una sola vez, después del
+    // montaje (ver CotizacionesLayout), nunca en el estado inicial del store: si el store arrancara ya
+    // con lo del localStorage, el primer render del cliente no coincidiría con el HTML del servidor
+    // (que siempre parte vacío) y React marcaría un error de hidratación.
+    cargarEstadoPersistido: (_estado, accion: PayloadAction<EstadoCotizacion>) => accion.payload,
     seleccionarCliente: (estado, accion: PayloadAction<ClienteCotizacion | null>) => {
       estado.cliente = accion.payload;
     },
@@ -96,6 +100,7 @@ const sliceCotizacion = createSlice({
       estado.cliente = null;
       estado.descuentoActivo = false;
       estado.descuentoPorcentaje = 0;
+      estado.esMinorista = false;
     },
     activarDescuento: (estado, accion: PayloadAction<boolean>) => {
       estado.descuentoActivo = accion.payload;
@@ -107,15 +112,21 @@ const sliceCotizacion = createSlice({
     cambiarDescuento: (estado, accion: PayloadAction<number>) => {
       estado.descuentoPorcentaje = Math.max(0, Math.min(100, accion.payload));
     },
+    // Minorista y descuento son excluyentes: al activar minorista se apaga cualquier descuento activo.
+    activarMinorista: (estado, accion: PayloadAction<boolean>) => {
+      estado.esMinorista = accion.payload;
+
+      if (accion.payload) {
+        estado.descuentoActivo = false;
+        estado.descuentoPorcentaje = 0;
+      }
+    },
   },
 });
 
 export const store = configureStore({
   reducer: {
     cotizacion: sliceCotizacion.reducer,
-  },
-  preloadedState: {
-    cotizacion: cargarEstadoPersistido(),
   },
 });
 
@@ -129,6 +140,7 @@ export type RootState = ReturnType<typeof store.getState>;
 export type AppDispatch = typeof store.dispatch;
 
 export const {
+  cargarEstadoPersistido,
   seleccionarCliente,
   agregarProducto,
   actualizarCantidad,
@@ -136,4 +148,5 @@ export const {
   limpiarCarrito,
   activarDescuento,
   cambiarDescuento,
+  activarMinorista,
 } = sliceCotizacion.actions;

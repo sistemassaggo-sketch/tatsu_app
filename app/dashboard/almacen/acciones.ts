@@ -8,6 +8,31 @@ import { registrarEventoAuditoria } from "@/lib/auditoria";
 import { fechaCodigoColombia } from "@/lib/fechas";
 import { TAG_REPORTES } from "@/lib/reportes";
 
+// Al legalizarse una cotización se descuentan las existencias de cada producto y se actualiza su
+// disponibilidad. Se hace con un UPDATE atómico (con guarda "existencias >= cantidad") para que dos
+// legalizaciones concurrentes no dejen existencias negativas; si no alcanza, se corta la transacción.
+async function descontarExistencias<T extends { $queryRaw: typeof prisma.$queryRaw }>(
+  tx: T,
+  items: { productoId: number; cantidad: number; producto: { codigo: string } }[],
+) {
+  for (const { productoId, cantidad, producto } of items) {
+    const [{ filas }] = await tx.$queryRaw<{ filas: bigint }[]>`
+      WITH actualizado AS (
+        UPDATE productos
+        SET existencias = existencias - ${cantidad},
+            disponibilidad = (existencias - ${cantidad}) > 0
+        WHERE id = ${productoId} AND existencias >= ${cantidad}
+        RETURNING id
+      )
+      SELECT count(*) AS filas FROM actualizado
+    `;
+
+    if (Number(filas) === 0) {
+      throw new Error(`No hay existencias suficientes del producto ${producto.codigo} para legalizar la cotización.`);
+    }
+  }
+}
+
 function generarCodigoLegalizacion() {
   const fechaCodigo = fechaCodigoColombia();
   return `LEG-${fechaCodigo}-${randomBytes(4).toString("hex").toUpperCase()}`;
@@ -39,7 +64,7 @@ export async function actualizarCotizacionAlmacen(
 
   const cotizacion = await prisma.cotizacion.findUnique({
     where: { id: cotizacionId },
-    include: { items: true },
+    include: { items: { include: { producto: { select: { codigo: true } } } } },
   });
 
   if (!cotizacion) {
@@ -75,50 +100,69 @@ export async function actualizarCotizacionAlmacen(
     .filter((entrada) => !entrada.eliminado)
     .reduce((total, entrada) => total + entrada.subtotal, 0);
 
-  if (subtotal < TOTAL_MINIMO) {
+  // El mínimo se valida sobre el total real que va a quedar: si es minorista, el subtotal duplicado.
+  const totalParaMinimo = cotizacion.esMinorista ? subtotal * 2 : subtotal;
+
+  if (totalParaMinimo < TOTAL_MINIMO) {
     return { ok: false, mensaje: "La cotización debe tener un total mínimo de $500.000 para poder guardarse." };
   }
 
-  const porcentajeDescuento = cotizacion.descuentoActivo ? Number(cotizacion.descuentoPorc ?? 0) : 0;
-  const nuevoTotal = subtotal - (subtotal * porcentajeDescuento) / 100;
+  // Minorista y descuento son excluyentes: si es minorista no se toma descuento y el total se duplica.
+  const porcentajeDescuento = !cotizacion.esMinorista && cotizacion.descuentoActivo ? Number(cotizacion.descuentoPorc ?? 0) : 0;
+  const nuevoTotal = cotizacion.esMinorista ? subtotal * 2 : subtotal - (subtotal * porcentajeDescuento) / 100;
   const estadoSiguiente = porcentajeDescuento > 0 ? "REVISION_ALMACEN" : "LEGALIZADO";
   const fechaEliminacion = new Date();
 
-  const actualizada = await prisma.$transaction(async (tx) => {
-    const cambioEstado = await tx.cotizacion.updateMany({
-      where: { id: cotizacionId, estado: "CREADO" },
-      data: {
-        estado: estadoSiguiente,
-        total: nuevoTotal,
-        ...(estadoSiguiente === "LEGALIZADO" ? { codigoLegalizacion: generarCodigoLegalizacion() } : {}),
-      },
-    });
+  let actualizada: boolean;
 
-    if (cambioEstado.count === 0) {
-      return false;
-    }
-
-    for (const { item, eliminado, cantidad, subtotal: subtotalItem } of itemsFinales) {
-      await tx.itemCotizacion.update({
-        where: { id: item.id },
-        data: eliminado
-          ? {
-              eliminado: true,
-              eliminadoPor: item.eliminado ? item.eliminadoPor : nombreUsuario,
-              fechaEliminacion: item.eliminado ? item.fechaEliminacion : fechaEliminacion,
-            }
-          : {
-              cantidad,
-              subtotal: subtotalItem,
-              eliminado: false,
-              eliminadoPor: null,
-              fechaEliminacion: null,
-            },
+  try {
+    actualizada = await prisma.$transaction(async (tx) => {
+      const cambioEstado = await tx.cotizacion.updateMany({
+        where: { id: cotizacionId, estado: "CREADO" },
+        data: {
+          estado: estadoSiguiente,
+          total: nuevoTotal,
+          ...(estadoSiguiente === "LEGALIZADO"
+            ? { codigoLegalizacion: generarCodigoLegalizacion(), fechaLegalizacion: new Date() }
+            : {}),
+        },
       });
-    }
 
-    return true;
-  });
+      if (cambioEstado.count === 0) {
+        return false;
+      }
+
+      for (const { item, eliminado, cantidad, subtotal: subtotalItem } of itemsFinales) {
+        await tx.itemCotizacion.update({
+          where: { id: item.id },
+          data: eliminado
+            ? {
+                eliminado: true,
+                eliminadoPor: item.eliminado ? item.eliminadoPor : nombreUsuario,
+                fechaEliminacion: item.eliminado ? item.fechaEliminacion : fechaEliminacion,
+              }
+            : {
+                cantidad,
+                subtotal: subtotalItem,
+                eliminado: false,
+                eliminadoPor: null,
+                fechaEliminacion: null,
+              },
+        });
+      }
+
+      if (estadoSiguiente === "LEGALIZADO") {
+        await descontarExistencias(
+          tx,
+          itemsFinales.filter((entrada) => !entrada.eliminado).map(({ item, cantidad }) => ({ productoId: item.productoId, cantidad, producto: item.producto })),
+        );
+      }
+
+      return true;
+    });
+  } catch (error) {
+    return { ok: false, mensaje: error instanceof Error ? error.message : "No fue posible actualizar las existencias." };
+  }
 
   if (!actualizada) {
     return { ok: false, mensaje: "La cotización cambió de estado mientras la editabas." };
@@ -142,29 +186,54 @@ export async function actualizarCotizacionAlmacen(
   return { ok: true, mensaje: "Cotización actualizada." };
 }
 
-export async function aprobarCotizacion(formData: FormData) {
+export async function aprobarCotizacion(
+  _estadoPrevio: EstadoAccionAlmacen,
+  formData: FormData,
+): Promise<EstadoAccionAlmacen> {
   const sesion = await auth();
 
   if (sesion?.user?.role !== "admin") {
-    return;
+    return { ok: false, mensaje: "No tienes permisos para aprobar cotizaciones." };
   }
 
   const cotizacionId = Number(formData.get("cotizacionId"));
 
   if (!Number.isInteger(cotizacionId)) {
-    return;
+    return { ok: false, mensaje: "Cotización inválida." };
   }
 
   const usuario = sesion.user.username ?? sesion.user.name ?? "admin";
 
-  const resultado = await prisma.cotizacion.updateMany({
-    where: { id: cotizacionId, estado: "REVISION_ALMACEN" },
-    // Al aprobarse el precio, la cotización se legaliza de inmediato.
-    data: { estado: "LEGALIZADO", codigoLegalizacion: generarCodigoLegalizacion() },
-  });
+  try {
+    const resultado = await prisma.$transaction(async (tx) => {
+      const cambioEstado = await tx.cotizacion.updateMany({
+        where: { id: cotizacionId, estado: "REVISION_ALMACEN" },
+        // Al aprobarse el precio, la cotización se legaliza de inmediato.
+        data: { estado: "LEGALIZADO", codigoLegalizacion: generarCodigoLegalizacion(), fechaLegalizacion: new Date() },
+      });
 
-  if (resultado.count === 0) {
-    return;
+      if (cambioEstado.count === 0) {
+        return false;
+      }
+
+      const items = await tx.itemCotizacion.findMany({
+        where: { cotizacionId, eliminado: false },
+        select: { productoId: true, cantidad: true, producto: { select: { codigo: true } } },
+      });
+
+      await descontarExistencias(tx, items);
+
+      return true;
+    });
+
+    if (!resultado) {
+      return { ok: false, mensaje: "La cotización ya no está en revisión de almacén." };
+    }
+  } catch (error) {
+    return {
+      ok: false,
+      mensaje: error instanceof Error ? error.message : "No fue posible aprobar la cotización.",
+    };
   }
 
   await registrarEventoAuditoria({
@@ -180,19 +249,24 @@ export async function aprobarCotizacion(formData: FormData) {
   revalidateTag(TAG_REPORTES, "max");
   revalidatePath("/dashboard/aprobacion-precios");
   revalidatePath("/dashboard/almacen");
+
+  return { ok: true, mensaje: "Cotización aprobada y legalizada." };
 }
 
-export async function cancelarCotizacion(formData: FormData) {
+export async function cancelarCotizacion(
+  _estadoPrevio: EstadoAccionAlmacen,
+  formData: FormData,
+): Promise<EstadoAccionAlmacen> {
   const sesion = await auth();
 
   if (sesion?.user?.role !== "admin") {
-    return;
+    return { ok: false, mensaje: "No tienes permisos para rechazar cotizaciones." };
   }
 
   const cotizacionId = Number(formData.get("cotizacionId"));
 
   if (!Number.isInteger(cotizacionId)) {
-    return;
+    return { ok: false, mensaje: "Cotización inválida." };
   }
 
   const usuario = sesion.user.username ?? sesion.user.name ?? "admin";
@@ -203,7 +277,7 @@ export async function cancelarCotizacion(formData: FormData) {
   });
 
   if (resultado.count === 0) {
-    return;
+    return { ok: false, mensaje: "La cotización ya no está en revisión de almacén." };
   }
 
   await registrarEventoAuditoria({
@@ -217,4 +291,6 @@ export async function cancelarCotizacion(formData: FormData) {
 
   revalidatePath("/dashboard/aprobacion-precios");
   revalidatePath("/dashboard/almacen");
+
+  return { ok: true, mensaje: "Cotización rechazada." };
 }

@@ -18,11 +18,13 @@ export default function DetalleCotizacionEditor({
   cotizacionId,
   itemsIniciales,
   descuentoPorc = 0,
+  esMinorista = false,
 }: {
   cotizacionId: number;
   itemsIniciales: ItemCotizacionEditor[];
   totalInicial?: number;
   descuentoPorc?: number;
+  esMinorista?: boolean;
 }) {
   const [estadoAccion, accionFormulario] = useActionState(actualizarCotizacionAlmacen, null);
   const [items, setItems] = useState(
@@ -44,10 +46,12 @@ export default function DetalleCotizacionEditor({
   );
 
   const descuento = (subtotal * descuentoPorc) / 100;
-  const totalActual = subtotal - descuento;
+  // Minorista y descuento son excluyentes: si es minorista no se toma descuento y el total se duplica.
+  const totalActual = esMinorista ? subtotal * 2 : subtotal - descuento;
   const totalMinimo = 500000;
-  // El mínimo se valida sobre el subtotal (antes de descuento), igual que en el servidor.
-  const bajoMinimo = subtotal < totalMinimo;
+  // El mínimo se valida sobre el total real que va a quedar (antes de descuento, pero ya duplicado
+  // si es minorista), igual que en el servidor.
+  const bajoMinimo = (esMinorista ? subtotal * 2 : subtotal) < totalMinimo;
 
   const actualizarCantidad = (itemId: number, cantidad: number) => {
     const cantidadValida = Number.isFinite(cantidad) ? Math.max(1, cantidad) : 1;
@@ -156,7 +160,12 @@ export default function DetalleCotizacionEditor({
           <span>Subtotal</span>
           <strong>{formatearCop(subtotal)}</strong>
         </div>
-        {descuentoPorc > 0 ? (
+        {esMinorista ? (
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <span>Minorista</span>
+            <strong>Total x2</strong>
+          </div>
+        ) : descuentoPorc > 0 ? (
           <div style={{ display: "flex", justifyContent: "space-between" }}>
             <span>Descuento ({descuentoPorc}%)</span>
             <strong>-{formatearCop(descuento)}</strong>

@@ -8,7 +8,8 @@ export type TipoEventoAuditoria =
   | "APROBAR_COTIZACION"
   | "RECHAZAR_COTIZACION"
   | "SOLICITAR_RESTABLECIMIENTO"
-  | "RESTABLECER_CONTRASENA";
+  | "RESTABLECER_CONTRASENA"
+  | "MODIFICAR_PRODUCTO";
 
 export async function registrarEventoAuditoria({
   usuario,
