@@ -174,7 +174,17 @@ export async function generarPdfDocumento(datos: DatosDocumentoPdf) {
             table: {
               body: [[{ image: "logo", width: IMG, height: IMG }, { image: "logoSm", width: IMG, height: IMG }]],
             },
-            layout: estiloBloque(BLANCO),
+            layout: { ...estiloBloque(BLANCO),
+
+             vLineColor: function (i: number, node: { table: { widths: string | any[]; }; }) {
+          // i es el índice de la línea vertical
+          // node.table.widths.length es el número de columnas
+          if (i === 0 || i === node.table.widths.length) {
+            return CONTORNO_BLOQUES; // Líneas externas (izquierda y derecha)
+          }
+          return '#fff'; // Líneas verticales internas (verdes)
+            }
+            },
           },
           {
             width: "*",
@@ -204,7 +214,7 @@ export async function generarPdfDocumento(datos: DatosDocumentoPdf) {
     table: {
       widths: ["*"],
       body: [
-        [{ text: "VENDEDOR", bold: true, fontSize: 10, color: ROJO_VENDEDOR }],
+        [{ text: "VENDEDOR", bold: true, fontSize: 10, color: ROJO_VENDEDOR}],
         [
           {
             stack: [
@@ -216,7 +226,9 @@ export async function generarPdfDocumento(datos: DatosDocumentoPdf) {
         ],
       ],
     },
-    layout: estiloBloque(),
+    ...estiloBloque(),
+      // La primera fila (VENDEDOR ) lleva fondo #DBE0D6; el resto, blanco.
+      fillColor: (rowIndex: number) => (rowIndex === 0 ? FONDO_BLOQUES : null),
   };
 
   const bloqueCliente = {

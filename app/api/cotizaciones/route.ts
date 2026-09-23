@@ -35,8 +35,8 @@ export async function POST(request: Request) {
     const items: ItemCotizacionEntrada[] = Array.isArray(cuerpo.items) ? cuerpo.items : [];
     // El rol "cliente" nunca puede cotizar como minorista, sin importar lo que llegue en la petición.
     const esMinorista = !esRolCliente && Boolean(cuerpo.esMinorista);
-    // Minorista y descuento son excluyentes: si es minorista no se toma descuento.
-    const descuentoActivo = !esMinorista && Boolean(cuerpo.descuentoActivo);
+    // El rol "cliente" tampoco puede aplicar descuento. Minorista y descuento también son excluyentes entre sí.
+    const descuentoActivo = !esRolCliente && !esMinorista && Boolean(cuerpo.descuentoActivo);
     const descuentoPorcentaje = Number(cuerpo.descuentoPorcentaje ?? 0);
 
     if (!Number.isFinite(descuentoPorcentaje) || descuentoPorcentaje < 0 || descuentoPorcentaje > 100) {

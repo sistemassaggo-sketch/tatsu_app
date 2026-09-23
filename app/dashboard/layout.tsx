@@ -27,7 +27,10 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const { data: session } = useSession();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const nombreUsuario = session?.user?.username ?? session?.user?.name ?? "Usuario";
-  const elementosMenu = menuItems.filter((item) => puedeAccederARuta(session?.user?.role, item.href));
+  // El rol "cliente" no tiene módulo de resumen: solo cotiza.
+  const elementosMenu = menuItems
+    .filter((item) => item.href !== "/dashboard" || session?.user?.role !== "cliente")
+    .filter((item) => puedeAccederARuta(session?.user?.role, item.href));
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "#f5f7fb", color: "#111827" }}>

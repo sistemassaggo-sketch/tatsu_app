@@ -12,8 +12,26 @@ export default async function HistorialCotizacionesPage({
 }) {
   const session = await auth();
 
-  if (!session?.user?.role || !["admin", "comercial"].includes(session.user.role)) {
+  if (!session?.user?.role || !["admin", "comercial", "cliente"].includes(session.user.role)) {
     redirect("/dashboard");
+  }
+
+  const esRolCliente = session.user.role === "cliente";
+
+  // El rol "cliente" solo ve el historial de su propio cliente asociado, nunca el de otros.
+  let clienteIdPropio: number | null = null;
+
+  if (esRolCliente) {
+    const usuarioSesion = await prisma.usuario.findUnique({
+      where: { username: session.user.username ?? "" },
+      select: { clienteId: true },
+    });
+
+    clienteIdPropio = usuarioSesion?.clienteId ?? null;
+
+    if (!clienteIdPropio) {
+      redirect("/dashboard/cotizaciones");
+    }
   }
 
   const { q } = await searchParams;
@@ -22,6 +40,7 @@ export default async function HistorialCotizacionesPage({
   const cotizaciones = await prisma.cotizacion.findMany({
     where: {
       estado: { in: ESTADOS_HISTORIAL },
+      ...(clienteIdPropio ? { clienteId: clienteIdPropio } : {}),
       ...(busqueda ? { codigo: { contains: busqueda, mode: "insensitive" as const } } : {}),
     },
     include: { cliente: { select: { nombre: true } } },

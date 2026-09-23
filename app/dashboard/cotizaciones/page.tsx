@@ -104,9 +104,7 @@ export default async function CotizacionesPage({
       <section style={estiloSeccion}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <h2 style={estiloTitulo}>Cotización</h2>
-        {!esRolCliente ? (
-          <Link href="/dashboard/cotizaciones/historial" style={estiloBotonSecundario}>Historial cotizaciones</Link>
-        ) : null}
+        <Link href="/dashboard/cotizaciones/historial" style={estiloBotonSecundario}>Historial cotizaciones</Link>
       </div>
       <p style={{ color: "#475569", lineHeight: 1.7, marginBottom: 24 }}>
         {esRolCliente
@@ -116,7 +114,7 @@ export default async function CotizacionesPage({
 
       <div style={{ display: "grid", gap: 24, gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 360px), 1fr))", alignItems: "start" }}>
         <div style={{ display: "grid", gap: 20, minWidth: 0 }}>
-          <ClienteSelector clientes={clientes} />
+          <ClienteSelector clientes={clientes} clienteFijo={clienteFijo} />
 
           <BuscadorProductosCotizacion />
 
@@ -135,7 +133,7 @@ export default async function CotizacionesPage({
           ) : null}
         </div>
 
-        <CarritoCotizacion />
+        <CarritoCotizacion esRolCliente={esRolCliente} />
       </div>
     </section>
     </>

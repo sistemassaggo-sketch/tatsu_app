@@ -14,7 +14,7 @@ import {
   type RootState,
 } from "@/store/cotizacion";
 
-export default function CarritoCotizacion() {
+export default function CarritoCotizacion({ esRolCliente = false }: { esRolCliente?: boolean }) {
   const dispatch = useDispatch();
   const { items, cliente, descuentoActivo, descuentoPorcentaje, esMinorista } = useSelector(
     (state: RootState) => state.cotizacion,
@@ -26,6 +26,18 @@ export default function CarritoCotizacion() {
       Object.fromEntries(items.map((item) => [item.id, String(item.cantidad)])),
     );
   }, [items]);
+
+  // El rol "cliente" nunca cotiza como minorista ni con descuento; si quedaron en true por un
+  // estado persistido anterior (p. ej. cambio de rol del usuario), se corrigen al montar el carrito.
+  useEffect(() => {
+    if (esRolCliente && esMinorista) {
+      dispatch(activarMinorista(false));
+    }
+
+    if (esRolCliente && descuentoActivo) {
+      dispatch(activarDescuento(false));
+    }
+  }, [esRolCliente, esMinorista, descuentoActivo, dispatch]);
 
   const subtotal = items.reduce((total, item) => total + item.precio * item.cantidad, 0);
   // Minorista y descuento son excluyentes: si es minorista no se toma descuento y el total se duplica.
@@ -101,17 +113,19 @@ export default function CarritoCotizacion() {
         ))}
 
         <div style={{ border: "1px solid #e2e8f0", borderRadius: 12, padding: 18, display: "grid", gap: 14 }}>
-          <label style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: 700, cursor: "pointer" }}>
-            <input
-              type="checkbox"
-              checked={esMinorista}
-              onChange={(evento) => dispatch(activarMinorista(evento.target.checked))}
-              style={{ width: 18, height: 18 }}
-            />
-            Cotizar como minorista
-          </label>
+          {!esRolCliente ? (
+            <label style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: 700, cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={esMinorista}
+                onChange={(evento) => dispatch(activarMinorista(evento.target.checked))}
+                style={{ width: 18, height: 18 }}
+              />
+              Cotizar como minorista
+            </label>
+          ) : null}
 
-          {!esMinorista ? (
+          {!esRolCliente && !esMinorista ? (
             <>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
                 <strong>Descuento</strong>
@@ -163,7 +177,7 @@ export default function CarritoCotizacion() {
               <span>Subtotal</span>
               <strong>{formatearCop(subtotal)}</strong>
             </div>
-            {!esMinorista ? (
+            {!esRolCliente && !esMinorista ? (
               <div style={{ display: "flex", justifyContent: "space-between" }}>
                 <span>Descuento</span>
                 <strong>- {formatearCop(descuento)}</strong>

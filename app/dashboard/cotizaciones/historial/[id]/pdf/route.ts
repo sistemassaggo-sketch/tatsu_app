@@ -6,8 +6,26 @@ import { ESTADOS_HISTORIAL } from "../../utilidades";
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const sesion = await auth();
 
-  if (!sesion?.user?.role || !["admin", "comercial"].includes(sesion.user.role)) {
+  if (!sesion?.user?.role || !["admin", "comercial", "cliente"].includes(sesion.user.role)) {
     return new Response("No autorizado", { status: 403 });
+  }
+
+  const esRolCliente = sesion.user.role === "cliente";
+
+  // El rol "cliente" solo puede descargar el PDF de cotizaciones de su propio cliente asociado.
+  let clienteIdPropio: number | null = null;
+
+  if (esRolCliente) {
+    const usuarioSesion = await prisma.usuario.findUnique({
+      where: { username: sesion.user.username ?? "" },
+      select: { clienteId: true },
+    });
+
+    clienteIdPropio = usuarioSesion?.clienteId ?? null;
+
+    if (!clienteIdPropio) {
+      return new Response("No autorizado", { status: 403 });
+    }
   }
 
   const { id } = await params;
@@ -29,6 +47,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
   if (!cotizacion || !ESTADOS_HISTORIAL.includes(cotizacion.estado)) {
     return new Response("Cotización no encontrada", { status: 404 });
+  }
+
+  if (clienteIdPropio && cotizacion.clienteId !== clienteIdPropio) {
+    return new Response("No autorizado", { status: 403 });
   }
 
   const bytes = await generarPdfDocumento({

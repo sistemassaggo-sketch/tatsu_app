@@ -7,8 +7,26 @@ import { ESTADOS_HISTORIAL, formatearCop, formatearFecha } from "../utilidades";
 export default async function DetalleCotizacionHistorialPage({ params }: { params: Promise<{ id: string }> }) {
   const sesion = await auth();
 
-  if (!sesion?.user?.role || !["admin", "comercial"].includes(sesion.user.role)) {
+  if (!sesion?.user?.role || !["admin", "comercial", "cliente"].includes(sesion.user.role)) {
     redirect("/dashboard");
+  }
+
+  const esRolCliente = sesion.user.role === "cliente";
+
+  // El rol "cliente" solo puede ver el detalle de cotizaciones de su propio cliente asociado.
+  let clienteIdPropio: number | null = null;
+
+  if (esRolCliente) {
+    const usuarioSesion = await prisma.usuario.findUnique({
+      where: { username: sesion.user.username ?? "" },
+      select: { clienteId: true },
+    });
+
+    clienteIdPropio = usuarioSesion?.clienteId ?? null;
+
+    if (!clienteIdPropio) {
+      redirect("/dashboard/cotizaciones");
+    }
   }
 
   const { id } = await params;
@@ -27,6 +45,10 @@ export default async function DetalleCotizacionHistorialPage({ params }: { param
   });
 
   if (!cotizacion || !ESTADOS_HISTORIAL.includes(cotizacion.estado)) {
+    redirect("/dashboard/cotizaciones/historial");
+  }
+
+  if (clienteIdPropio && cotizacion.clienteId !== clienteIdPropio) {
     redirect("/dashboard/cotizaciones/historial");
   }
 

@@ -15,6 +15,11 @@ export default async function DashboardPage() {
     redirect("/");
   }
 
+  // El rol "cliente" no tiene módulo de resumen: va directo a cotizar.
+  if (session.user.role === "cliente") {
+    redirect("/dashboard/cotizaciones");
+  }
+
   let metricas: { titulo: string; valor: number; color: string }[] | null = null;
 
   if (session.user.role === "admin") {
