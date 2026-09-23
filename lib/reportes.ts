@@ -9,11 +9,12 @@ const PRODUCTOS_A_MOSTRAR = 10;
 
 export type VentaMensual = { mes: string; etiqueta: string; total: number; legalizaciones: number };
 export type ProductoVendido = { id: number; codigo: string; descripcion: string; unidades: number };
-export type DatosReportes = { ventasPorMes: VentaMensual[]; productosMasVendidos: ProductoVendido[]; generadoEn: string };
+export type DatosReportes = { ventasPorMes: VentaMensual[]; productosMasVendidos: ProductoVendido[]; tipoVenta: TipoVenta; generadoEn: string };
+export type TipoVenta = { minoristas: number; mayoristas: number}
 
 // Las agregaciones se hacen en PostgreSQL: solo viajan unas pocas filas resumidas, no las cotizaciones completas.
 async function consultarReportes(): Promise<DatosReportes> {
-  const [ventas, productos] = await Promise.all([
+  const [ventas, productos, tipoVentas] = await Promise.all([
     // Legalizaciones por mes (hora de Colombia) de los últimos 12 meses. `total` ya incluye el descuento.
     prisma.$queryRaw<{ mes: string; total: number; legalizaciones: number }[]>`
       SELECT to_char(date_trunc('month', (fecha_creacion AT TIME ZONE 'UTC') AT TIME ZONE ${ZONA_HORARIA}), 'YYYY-MM') AS mes,
@@ -35,11 +36,17 @@ async function consultarReportes(): Promise<DatosReportes> {
       GROUP BY p.id, p.codigo, p.descripcion_original
       ORDER BY unidades DESC, p.codigo
       LIMIT ${PRODUCTOS_A_MOSTRAR}`,
+      // Discriminación por tipo de venta - conteo
+    prisma.$queryRaw<{ minoristas: number; mayoristas: number }[]>`
+      SELECT COUNT(1)::int as minoristas, (SELECT COUNT(1)::int FROM cotizaciones WHERE estado = 'LEGALIZADO' AND es_minorista = false) as mayoristas
+      FROM cotizaciones c
+      WHERE c.estado = 'LEGALIZADO' AND c.es_minorista = true`,
   ]);
 
   return {
     ventasPorMes: completarMeses(ventas),
     productosMasVendidos: productos,
+    tipoVenta: tipoVentas[0] ?? { minoristas: 0, mayoristas: 0 },
     generadoEn: new Date().toISOString(),
   };
 }

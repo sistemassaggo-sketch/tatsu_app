@@ -11,6 +11,8 @@ type Producto = {
   descripcionOriginal: string;
   precioBaseCop: number | null;
   urlId?: string | null;
+  casaFamilia?: string | null;
+  tipoAcabado?: string | null;
 };
 
 export default function ProductosCotizacion({ productos }: { productos: Producto[] }) {
@@ -191,6 +193,8 @@ export default function ProductosCotizacion({ productos }: { productos: Producto
             <div style={{ padding: "16px 18px 18px" }}>
               <p style={{ margin: 0, fontWeight: 800, fontSize: 20, color: "#0f172a" }}>{productoSeleccionado.codigo}</p>
               <p style={{ margin: "8px 0 0", color: "#475569", lineHeight: 1.6 }}>{productoSeleccionado.descripcionOriginal}</p>
+              <p style={{ margin: "8px 0 0", color: "#475569", lineHeight: 1.6 }}>Familia {productoSeleccionado.casaFamilia}</p>
+              <p style={{ margin: "8px 0 0", color: "#475569", lineHeight: 1.6 }}>Tipo de Acabado: {productoSeleccionado.tipoAcabado}</p>
             </div>
           </div>
         </div>

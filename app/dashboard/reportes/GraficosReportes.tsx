@@ -1,14 +1,28 @@
 "use client";
 
-import { Bar, BarChart, CartesianGrid, LabelList, XAxis, YAxis } from "recharts";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Bar, BarChart, CartesianGrid, LabelList, XAxis, YAxis, Pie, PieChart } from "recharts";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
-import type { ProductoVendido, VentaMensual } from "@/lib/reportes";
+import type { ProductoVendido, VentaMensual, TipoVenta } from "@/lib/reportes";
 
 const configVentas = { total: { label: "Ventas", color: "var(--color-chart-1)" } } satisfies ChartConfig;
 const configProductos = { unidades: { label: "Unidades", color: "var(--color-chart-2)" } } satisfies ChartConfig;
 
 const formatoCop = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
+
+const chartConfig = {
+  cantidad: {
+    label: "Cotizaciones",
+  },
+  minoristas: {
+    label: "Minoristas",
+    color: "var(--color-chart-1)"
+  },
+  mayoristas: {
+    label: "Mayoristas",
+    color: "var(--color-chart-2)",
+  },
+} satisfies ChartConfig
 
 function abreviarCop(valor: number) {
   if (valor >= 1_000_000) {
@@ -21,11 +35,19 @@ function abreviarCop(valor: number) {
 export default function GraficosReportes({
   ventasPorMes,
   productosMasVendidos,
+  tipoVenta
 }: {
   ventasPorMes: VentaMensual[];
   productosMasVendidos: ProductoVendido[];
+  tipoVenta: TipoVenta
 }) {
   const hayVentas = ventasPorMes.some((mes) => mes.total > 0);
+
+  // Pie necesita un arreglo (una fila por porción), no el objeto {minoristas, mayoristas} directo.
+  const datosTipoVenta = [
+    { tipo: "minoristas", cantidad: tipoVenta.minoristas, fill: "var(--color-minoristas)" },
+    { tipo: "mayoristas", cantidad: tipoVenta.mayoristas, fill: "var(--color-mayoristas)" },
+  ];
 
   return (
     <div className="grid gap-6 lg:grid-cols-2">
@@ -98,6 +120,32 @@ export default function GraficosReportes({
           )}
         </CardContent>
       </Card>
+
+      <Card className="flex flex-col">
+      <CardHeader className="items-center pb-0">
+        <CardTitle>Tipo de ventas</CardTitle>
+        <CardDescription>Periodo de tiempo total</CardDescription>
+      </CardHeader>
+      <CardContent className="flex-1 pb-0">
+        <ChartContainer
+          config={chartConfig}
+          className="mx-auto aspect-square max-h-[250px] pb-0 [&_.recharts-pie-label-text]:fill-foreground"
+        >
+          <PieChart>
+            <ChartTooltip content={<ChartTooltipContent hideLabel />} />
+            <Pie data={datosTipoVenta} dataKey="cantidad" label nameKey="tipo" />
+          </PieChart>
+        </ChartContainer>
+      </CardContent>
+      <CardFooter className="flex-col gap-2 text-sm">
+        <div className="flex items-center gap-2 leading-none font-medium">
+          Trending up by 5.2% this month
+        </div>
+        <div className="leading-none text-muted-foreground">
+          Showing total visitors for the last 6 months
+        </div>
+      </CardFooter>
+    </Card>
     </div>
   );
 }

@@ -174,23 +174,24 @@ export async function generarPdfDocumento(datos: DatosDocumentoPdf) {
             table: {
               body: [[{ image: "logo", width: IMG, height: IMG }, { image: "logoSm", width: IMG, height: IMG }]],
             },
-            layout: { ...estiloBloque(BLANCO),
+            layout: {
+              ...estiloBloque(BLANCO),
 
-             vLineColor: function (i: number, node: { table: { widths: string | any[]; }; }) {
-          // i es el índice de la línea vertical
-          // node.table.widths.length es el número de columnas
-          if (i === 0 || i === node.table.widths.length) {
-            return CONTORNO_BLOQUES; // Líneas externas (izquierda y derecha)
-          }
-          return '#fff'; // Líneas verticales internas (verdes)
-            }
+              vLineColor: function (i: number, node: { table: { widths: string | any[]; }; }) {
+                // i es el índice de la línea vertical
+                // node.table.widths.length es el número de columnas
+                if (i === 0 || i === node.table.widths.length) {
+                  return CONTORNO_BLOQUES; // Líneas externas (izquierda y derecha)
+                }
+                return '#fff'; // Líneas verticales internas (verdes)
+              }
             },
           },
           {
             width: "*",
             stack: [
               { text: datos.titulo, fontSize: 8, bold: true, color: NEGRO, alignment: "center" as const },
-              { text: "TATSU MOTOS", fontSize: 28, bold: true, color: NEGRO, alignment: "center" as const, margin: [0, 6, 0, 0] as [number, number, number, number] },
+              { text: "TATSU MOTOS", fontSize: 34, bold: false, color: NEGRO, alignment: "center" as const, margin: [0, 6, 0, 0] as [number, number, number, number] },
             ],
           },
           {
@@ -202,7 +203,11 @@ export async function generarPdfDocumento(datos: DatosDocumentoPdf) {
                 [{ text: fecha, fontSize: 10, color: NEGRO }],
               ],
             },
-            layout: estiloBloque(FONDO_BLOQUES),
+            layout: {
+              ...estiloBloque(),
+              fillColor: (rowIndex: number) => (rowIndex === 0 ? FONDO_BLOQUES : null),
+            },
+
           },
         ],
       },
@@ -214,21 +219,25 @@ export async function generarPdfDocumento(datos: DatosDocumentoPdf) {
     table: {
       widths: ["*"],
       body: [
-        [{ text: "VENDEDOR", bold: true, fontSize: 10, color: ROJO_VENDEDOR}],
+        [{ text: "VENDEDOR", bold: true, fontSize: 10, color: ROJO_VENDEDOR, alignment: "center" }],
         [
           {
             stack: [
-              { text: datos.vendedor, fontSize: 10, color: NEGRO, margin: [0, 0, 0, 4] as [number, number, number, number] },
+              { text: datos.vendedor.toUpperCase(), fontSize: 10, color: NEGRO, margin: [0, 0, 0, 4] as [number, number, number, number], bold: true },
               etiquetaValor("Nº CONTACTO:", CONTACTO_VENDEDOR_FIJO, 9),
               etiquetaValor("DIRECCIÓN:", DIRECCION_VENDEDOR_FIJA, 9),
-            ],
+              // Línea de relleno: el bloque CLIENTE tiene una línea más (ZONA), esto iguala la altura de ambos bloques.
+              etiquetaValor("", "", 9),
+            ]
           },
         ],
       ],
     },
-    ...estiloBloque(),
+    layout: {
+      ...estiloBloque(),
       // La primera fila (VENDEDOR ) lleva fondo #DBE0D6; el resto, blanco.
       fillColor: (rowIndex: number) => (rowIndex === 0 ? FONDO_BLOQUES : null),
+    }
   };
 
   const bloqueCliente = {
@@ -295,14 +304,14 @@ export async function generarPdfDocumento(datos: DatosDocumentoPdf) {
     return [
       {
         stack: [
-          { svg: generarSvgCodigoBarras(String(item.id)), width: 80, height: 16 },
-          { text: item.producto.codigo, fontSize: 7, color, alignment: "center" as const, margin: [0, 2, 0, 0] as [number, number, number, number] },
+          { svg: generarSvgCodigoBarras(String(item.id)), width: 80, height: 12 },
+          { text: item.producto.codigo, fontSize: 8, color, alignment: "center" as const, margin: [0, 2, 0, 0] as [number, number, number, number] },
         ],
       },
-      { text: descripcion, fontSize: 9.5, color },
-      { text: String(item.cantidad), fontSize: 10, color, alignment: "right" as const },
-      { text: formatearCop(Number(item.precioUnitario)), fontSize: 10, color, alignment: "right" as const },
-      { text: item.eliminado ? "Eliminado" : formatearCop(Number(item.subtotal)), fontSize: 10, color, alignment: "right" as const },
+      { text: descripcion, fontSize: 7.5, color },
+      { text: String(item.cantidad), fontSize: 9, color, alignment: "right" as const },
+      { text: formatearCop(Number(item.precioUnitario)), fontSize: 9, color, alignment: "right" as const },
+      { text: item.eliminado ? "Eliminado" : formatearCop(Number(item.subtotal)), fontSize: 9, color, alignment: "right" as const },
     ];
   });
 
@@ -339,39 +348,45 @@ export async function generarPdfDocumento(datos: DatosDocumentoPdf) {
           table: {
             widths: ["*"],
             body: [
-              [{ text: "COMENTARIOS", bold: true, fontSize: 11, color: CONTORNO_BLOQUES }],
+              [{ text: "Comentario", bold: true, fontSize: 11, color: NEGRO }],
               [{ text: " ", fontSize: 30 }], // espacio en blanco para anotar
             ],
           },
-          layout: estiloBloque(FONDO_BLOQUES),
+          layout: {
+            ...estiloBloque(),
+            fillColor: (rowIndex: number) => (rowIndex === 0 ? FONDO_BLOQUES : null),
+          },
         },
         // Medios de pago (izquierda) y total (derecha).
         {
-          margin: [0, 10, 0, 0] as [number, number, number, number],
+          margin: [0, 3, 0, 0] as [number, number, number, number],
           columns: [
             {
               width: 350,
               table: {
                 widths: [anchoCeldaPago, anchoCeldaPago],
                 body: [
-                  [{ text: AVISO_CONFIRMACION_PRODUCTOS, bold: true, fontSize: 9, color: ROJO_VENDEDOR, colSpan: 2 }, {}],
+                  [{ text: AVISO_CONFIRMACION_PRODUCTOS, bold: true, fontSize: 10, color: NEGRO, colSpan: 2 }, {}],
                   [
                     {
                       stack: [
-                        { text: "CUENTA AHORROS BANCOLOMBIA", bold: true, color: ROJO_VENDEDOR, fontSize: tamanoAjustado("CUENTA AHORROS BANCOLOMBIA", anchoCeldaPago - 16, 10) },
-                        { text: "N° 108 944 02 682", bold: true, color: ROJO_VENDEDOR, fontSize: tamanoAjustado("N° 108 944 02 682", anchoCeldaPago - 16, 10) },
+                        { text: "CUENTA AHORROS BANCOLOMBIA", bold: true, color: ROJO_VENDEDOR, fontSize: 12 },
+                        { text: "N° 108 944 02 682", bold: true, color: ROJO_VENDEDOR, fontSize: 12 },
                       ],
                     },
                     {
                       stack: [
-                        { text: "NEQUI PARA PAGOS", bold: true, color: NEGRO, fontSize: tamanoAjustado("NEQUI PARA PAGOS", anchoCeldaPago - 16, 10) },
-                        { text: "312 458 4286", bold: true, color: NEGRO, fontSize: tamanoAjustado("312 458 4286", anchoCeldaPago - 16, 10) },
+                        { text: "NEQUI PARA PAGOS", bold: true, color: NEGRO, fontSize: 12 },
+                        { text: "312 458 4286", bold: true, color: NEGRO, fontSize: 12 },
                       ],
                     },
                   ],
                 ],
               },
-              layout: estiloBloque(),
+              layout: {
+                ...estiloBloque(),
+                fillColor: (rowIndex: number) => (rowIndex === 0 ? FONDO_BLOQUES : null),
+              },
             },
             {
               width: "*",
@@ -388,16 +403,48 @@ export async function generarPdfDocumento(datos: DatosDocumentoPdf) {
               },
             },
           ],
-          columnGap: 12,
+          columnGap: 35,
         },
         // Redes sociales (sin cambios respecto al diseño anterior).
         {
-          text: "@tatsumotosoficial   @sm.racingoficial",
-          bold: true,
-          fontSize: 12,
-          color: NEGRO,
-          margin: [0, 12, 0, 0] as [number, number, number, number],
-        },
+          margin: [0, 5, 0, 0] as [number, number, number, number],
+          columns: [
+            
+            {
+              // El icono SVG de Instagram
+              svg: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#E4405F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>',
+              width: 12,    // Ancho pequeño para que actúe como icono
+              height: 12,   // Alto proporcional
+              margin: [0, 1, 5, 0] // Ajuste fino vertical [izq, arriba, der, abajo] para alinear con el texto
+            },
+            {
+              // El texto que acompaña al icono
+              text: '@tatsumotosoficial',
+              fontSize: 10,
+              color: NEGRO,
+              bold: true,
+              width: 'auto', // Hace que ocupe solo el espacio del texto
+              margin: [0, 1, 10, 0]
+            },
+            {
+              // El icono SVG de Instagram
+              svg: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#E4405F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>',
+              width: 12,    // Ancho pequeño para que actúe como icono
+              height: 12,   // Alto proporcional
+              margin: [0, 1, 5, 0] // Ajuste fino vertical [izq, arriba, der, abajo] para alinear con el texto
+            },
+            {
+              // El texto que acompaña al icono
+              text: '@sm.racingoficial',
+              fontSize: 10,
+              color: NEGRO,
+              bold: true,
+              width: 'auto', // Hace que ocupe solo el espacio del texto
+              margin: [0, 1, 10, 0]
+            }
+          ],
+          columnGap: 0 // Controlamos el espacio manualmente con el margin del svg
+        }
       ],
     };
   };
@@ -408,7 +455,7 @@ export async function generarPdfDocumento(datos: DatosDocumentoPdf) {
       columnGap: 12,
     },
     {
-      margin: [0, 10, 0, 16] as [number, number, number, number],
+      margin: [0, 10, 0, 4] as [number, number, number, number],
       columns: [
         { width: "*", ...bloqueDosColumnas("CONSECUTIVO N°", `COT N° ${datos.cotizacionId} - ${datos.fecha.getFullYear()}`, false) },
         { width: "*", ...bloqueDosColumnas("FECHA_ENTREGA", "3-4 DÍAS HÁBILES", true) },
@@ -418,9 +465,9 @@ export async function generarPdfDocumento(datos: DatosDocumentoPdf) {
     {
       text: AVISO_CONFIRMACION,
       bold: true,
-      fontSize: 11,
+      fontSize: 9.5,
       color: ROJO_VENDEDOR,
-      margin: [0, 0, 0, 10] as [number, number, number, number],
+      margin: [0, 0, 0, 3] as [number, number, number, number],
     },
     tablaProductos,
     {

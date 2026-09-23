@@ -75,6 +75,9 @@ export default async function CotizacionesPage({
         descripcionOriginal: true,
         precioBaseCop: true,
         urlId: true,
+        casaFamilia: true,
+        linea: true, 
+        tipoAcabado: true,
       },
     }),
   ]);

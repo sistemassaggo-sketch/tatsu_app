@@ -11,7 +11,7 @@ export default async function ReportesPage() {
     redirect("/dashboard");
   }
 
-  const { ventasPorMes, productosMasVendidos, generadoEn } = await obtenerReportes();
+  const { ventasPorMes, productosMasVendidos, tipoVenta, generadoEn } = await obtenerReportes();
 
   return (
     <section
@@ -28,7 +28,7 @@ export default async function ReportesPage() {
         (se refrescan cada 5 minutos).
       </p>
 
-      <GraficosReportes ventasPorMes={ventasPorMes} productosMasVendidos={productosMasVendidos} />
+      <GraficosReportes ventasPorMes={ventasPorMes} productosMasVendidos={productosMasVendidos} tipoVenta={tipoVenta}/>
     </section>
   );
 }

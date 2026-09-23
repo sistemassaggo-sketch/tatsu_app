@@ -172,7 +172,7 @@ export async function actualizarCotizacionAlmacen(
     usuario: nombreUsuario,
     usuarioId: Number(sesion.user?.id ?? 0) || null,
     accion: "MODIFICAR_COTIZACION",
-    descripcion: `Se actualizó la cotización #${cotizacionId} en almacén y quedó en estado ${estadoSiguiente}.`,
+    descripcion: `Se actualizó la cotización #${cotizacion.codigo} en almacén y quedó en estado ${estadoSiguiente}.`,
     recurso: "cotizaciones",
     recursoId: cotizacionId,
   });
