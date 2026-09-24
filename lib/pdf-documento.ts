@@ -139,6 +139,7 @@ export type DatosDocumentoPdf = {
   }[];
   descuentoPorcentaje: number;
   total?: unknown;
+  esLegalizacion: boolean;
 };
 
 export async function generarPdfDocumento(datos: DatosDocumentoPdf) {
@@ -177,7 +178,7 @@ export async function generarPdfDocumento(datos: DatosDocumentoPdf) {
             layout: {
               ...estiloBloque(BLANCO),
 
-              vLineColor: function (i: number, node: { table: { widths: string | any[]; }; }) {
+              vLineColor: function (i: number, node: { table: { widths: string | unknown[]; }; }) {
                 // i es el índice de la línea vertical
                 // node.table.widths.length es el número de columnas
                 if (i === 0 || i === node.table.widths.length) {
@@ -457,7 +458,7 @@ export async function generarPdfDocumento(datos: DatosDocumentoPdf) {
     {
       margin: [0, 10, 0, 4] as [number, number, number, number],
       columns: [
-        { width: "*", ...bloqueDosColumnas("CONSECUTIVO N°", `COT N° ${datos.cotizacionId} - ${datos.fecha.getFullYear()}`, false) },
+        { width: "*", ...bloqueDosColumnas("CONSECUTIVO N°", `${datos.esLegalizacion ? "LEG" : "COT"} N° ${datos.cotizacionId} - ${datos.fecha.getFullYear()}`, false) },
         { width: "*", ...bloqueDosColumnas("FECHA_ENTREGA", "3-4 DÍAS HÁBILES", true) },
       ],
       columnGap: 12,

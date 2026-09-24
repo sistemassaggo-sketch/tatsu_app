@@ -40,7 +40,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     where: { id: cotizacionId },
     include: {
       cliente: true,
-      vendedor: { select: { nombre: true, username: true } },
+      vendedor: { select: { nombre: true, username: true, rol: { select: { nombre: true } } } },
       items: { include: { producto: true }, orderBy: { id: "asc" } },
     },
   });
@@ -53,16 +53,24 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     return new Response("No autorizado", { status: 403 });
   }
 
+  // Si quien creó la cotización es un usuario rol "cliente" (auto-cotización), no se expone su
+  // nombre como vendedor: en el PDF figura la empresa.
+  const nombreVendedor =
+    cotizacion.vendedor?.rol.nombre === "cliente"
+      ? "TATSU MOTOS"
+      : (cotizacion.vendedor?.nombre ?? cotizacion.vendedor?.username ?? "-");
+
   const bytes = await generarPdfDocumento({
     titulo: "DOCUMENTO EQUIVALENTE A COTIZACIÓN",
     codigo: cotizacion.codigo,
     cotizacionId: cotizacion.id,
     fecha: cotizacion.fechaCreacion,
-    vendedor: cotizacion.vendedor?.nombre ?? cotizacion.vendedor?.username ?? "-",
+    vendedor: nombreVendedor,
     cliente: cotizacion.cliente,
     items: cotizacion.items,
     descuentoPorcentaje: cotizacion.descuentoActivo ? Number(cotizacion.descuentoPorc ?? 0) : 0,
     total: cotizacion.total,
+    esLegalizacion: false,
   });
 
   return new Response(Buffer.from(bytes), {

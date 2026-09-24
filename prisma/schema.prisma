@@ -48,8 +48,25 @@ model Producto {
   urlId               String?          @map("url_id")
   existencias         Int              @default(0)
   itemsCotizacion     ItemCotizacion[]
+  // Relaciones
+  componentesPadre  ProductoComponente[] @relation("ProductoPadre")
+  componentesHijo   ProductoComponente[] @relation("ProductoComponente")
 
   @@map("productos")
+}
+
+model ProductoComponente {
+  id                          Int      @id @default(autoincrement())
+  productoPadreId             Int      @map("producto_padre_id")
+  productoComponenteId        Int      @map("producto_componente_id")
+  cantidadRequeridaComponente Int      @default(1) @map("cantidad_requerida_componente")
+
+  // Definición de las llaves foráneas
+  productoPadre      Producto @relation("ProductoPadre", fields: [productoPadreId], references: [id])
+  productoComponente Producto @relation("ProductoComponente", fields: [productoComponenteId], references: [id])
+
+  @@unique([productoPadreId, productoComponenteId])
+  @@map("productos_componentes") 
 }
 
 model Cliente {

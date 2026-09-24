@@ -44,13 +44,46 @@ export default async function InventarioPage({
         codigo: true,
         descripcionOriginal: true,
         precioBaseCop: true,
+        existencias: true,
+        disponibilidad: true,
+        componentesPadre: {
+          select: {
+            cantidadRequeridaComponente: true,
+            productoComponente: {
+              select: {
+                id: true,
+                codigo: true,
+                descripcionOriginal: true,
+                precioBaseCop: true,
+                existencias: true,
+                disponibilidad: true,
+
+              }
+            }
+          }
+        }
       },
     }),
   ]);
 
   const productos = productosBase.map((producto) => ({
-    ...producto,
-    precioBaseCop: producto.precioBaseCop ? Number(producto.precioBaseCop) : null,
+    productoPadre: {
+      id: producto.id,
+      codigo: producto.codigo,
+      descripcionOriginal: producto.descripcionOriginal,
+      disponibilidad: producto.disponibilidad,
+      existencias: producto.existencias,
+      precioBaseCop: producto.precioBaseCop ? Number(producto.precioBaseCop) : null
+    },
+    componentes: producto.componentesPadre.map((pr) => ({
+      id: pr.productoComponente.id,
+      codigo: pr.productoComponente.codigo,
+      descripcionOriginal: pr.productoComponente.descripcionOriginal,
+      disponibilidad: pr.productoComponente.disponibilidad,
+      existencias: pr.productoComponente.existencias,
+      precioBaseCop: pr.productoComponente.precioBaseCop ? Number(pr.productoComponente.precioBaseCop) : null,
+      cantidadRequerida: pr.cantidadRequeridaComponente
+    }))
   }));
 
   const totalPaginas = Math.max(1, Math.ceil(totalProductos / productosPorPagina));
@@ -81,7 +114,7 @@ export default async function InventarioPage({
       ) : (
         <div style={{ display: "grid", gap: 12 }}>
           {productos.map((producto) => (
-            <FilaProductoInventario key={producto.id} producto={producto} />
+            <FilaProductoInventario key={producto.productoPadre.id} producto={producto} />
           ))}
         </div>
       )}

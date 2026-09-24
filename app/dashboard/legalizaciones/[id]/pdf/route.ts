@@ -20,7 +20,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     where: { id: cotizacionId },
     include: {
       cliente: true,
-      vendedor: { select: { nombre: true, username: true } },
+      vendedor: { select: { nombre: true, username: true, rol: { select: { nombre: true } } } },
       items: { where: { eliminado: false }, include: { producto: true }, orderBy: { id: "asc" } },
     },
   });
@@ -31,16 +31,24 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
   const codigo = cotizacion.codigoLegalizacion ?? cotizacion.codigo;
 
+  // Si quien creó la cotización es un usuario rol "cliente" (auto-cotización), no se expone su
+  // nombre como vendedor: en el PDF figura la empresa.
+  const nombreVendedor =
+    cotizacion.vendedor?.rol.nombre === "cliente"
+      ? "TATSU MOTOS"
+      : (cotizacion.vendedor?.nombre ?? cotizacion.vendedor?.username ?? "-");
+
   const bytes = await generarPdfDocumento({
     titulo: "DOCUMENTO EQUIVALENTE A LEGALIZACIÓN",
     codigo,
     cotizacionId: cotizacion.id,
     fecha: cotizacion.fechaCreacion,
-    vendedor: cotizacion.vendedor?.nombre ?? cotizacion.vendedor?.username ?? "-",
+    vendedor: nombreVendedor,
     cliente: cotizacion.cliente,
     items: cotizacion.items,
     descuentoPorcentaje: cotizacion.descuentoActivo ? Number(cotizacion.descuentoPorc ?? 0) : 0,
     total: cotizacion.total,
+    esLegalizacion: true,
   });
 
   return new Response(Buffer.from(bytes), {

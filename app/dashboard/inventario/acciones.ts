@@ -20,6 +20,7 @@ export async function actualizarProductoInventario(
   const productoId = Number(formData.get("productoId"));
   const descripcionOriginal = String(formData.get("descripcionOriginal") ?? "").trim();
   const precioTexto = String(formData.get("precioBaseCop") ?? "").trim();
+  const existenciasTexto = String(formData.get("existencias") ?? "").trim();
 
   if (!Number.isInteger(productoId)) {
     return { ok: false, mensaje: "Producto inválido." };
@@ -35,6 +36,12 @@ export async function actualizarProductoInventario(
     return { ok: false, mensaje: "El precio debe ser un número válido mayor o igual a 0." };
   }
 
+  const existencias = Number(existenciasTexto);
+
+  if (!Number.isInteger(existencias) || existencias < 0) {
+    return { ok: false, mensaje: "Las existencias deben ser un número entero mayor o igual a 0." };
+  }
+
   const producto = await prisma.producto.findUnique({ where: { id: productoId } });
 
   if (!producto) {
@@ -43,7 +50,13 @@ export async function actualizarProductoInventario(
 
   await prisma.producto.update({
     where: { id: productoId },
-    data: { descripcionOriginal, precioBaseCop },
+    data: {
+      descripcionOriginal,
+      precioBaseCop,
+      existencias,
+      // Si las existencias quedan en más de 0, el producto vuelve a estar disponible automáticamente.
+      ...(existencias > 0 ? { disponibilidad: true } : {}),
+    },
   });
 
   const nombreUsuario = sesion.user.username ?? sesion.user.name ?? "admin";
