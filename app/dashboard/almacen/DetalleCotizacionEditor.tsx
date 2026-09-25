@@ -7,6 +7,8 @@ type ItemCotizacionEditor = {
   id: number;
   codigo: string;
   descripcionOriginal: string;
+  colorNombre?: string | null;
+  colorHex?: string | null;
   precioUnitario: number;
   cantidad: number;
   eliminado?: boolean;
@@ -100,7 +102,18 @@ export default function DetalleCotizacionEditor({
           >
             <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
               <div>
-                <p style={{ margin: 0, fontWeight: 800 }}>{item.codigo}</p>
+                <p style={{ margin: 0, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}>
+                  {item.codigo}
+                  {item.colorNombre ? (
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontWeight: 600, fontSize: 13, color: "#475569" }}>
+                      <span
+                        aria-hidden="true"
+                        style={{ width: 12, height: 12, borderRadius: "50%", background: item.colorHex ?? "#cbd5e1", border: "1px solid #cbd5e1", display: "inline-block" }}
+                      />
+                      {item.colorNombre}
+                    </span>
+                  ) : null}
+                </p>
                 <p style={{ margin: "6px 0 0", color: "#475569" }}>{item.descripcionOriginal}</p>
               </div>
               <div style={{ textAlign: "right" }}>

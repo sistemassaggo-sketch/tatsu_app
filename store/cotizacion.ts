@@ -7,7 +7,18 @@ export type ProductoCotizacion = {
   precio: number;
   imagen: string;
   cantidad: number;
+  // Un mismo producto puede pedirse en varios colores dentro de la misma cotización: cada color
+  // es una línea independiente en el carrito, por eso la identidad de una línea es (id, colorId).
+  colorId?: number;
+  colorNombre?: string;
+  colorHex?: string;
 };
+
+// Dos líneas del carrito son "el mismo ítem" si son el mismo producto Y el mismo color (o ninguno
+// de los dos tiene color). Se usa en vez de comparar solo `id` para no fusionar rojo con azul.
+function mismoItem(a: { id: number; colorId?: number }, b: { id: number; colorId?: number }) {
+  return a.id === b.id && (a.colorId ?? null) === (b.colorId ?? null);
+}
 
 export type ClienteCotizacion = {
   id: number;
@@ -71,7 +82,7 @@ const sliceCotizacion = createSlice({
       estado.cliente = accion.payload;
     },
     agregarProducto: (estado, accion: PayloadAction<Omit<ProductoCotizacion, "cantidad">>) => {
-      const productoExistente = estado.items.find((item) => item.id === accion.payload.id);
+      const productoExistente = estado.items.find((item) => mismoItem(item, accion.payload));
 
       if (productoExistente) {
         productoExistente.cantidad += 1;
@@ -83,8 +94,8 @@ const sliceCotizacion = createSlice({
         cantidad: 1,
       });
     },
-    actualizarCantidad: (estado, accion: PayloadAction<{ id: number; cantidad: number }>) => {
-      const producto = estado.items.find((item) => item.id === accion.payload.id);
+    actualizarCantidad: (estado, accion: PayloadAction<{ id: number; colorId?: number; cantidad: number }>) => {
+      const producto = estado.items.find((item) => mismoItem(item, accion.payload));
 
       if (!producto) {
         return;
@@ -92,8 +103,8 @@ const sliceCotizacion = createSlice({
 
       producto.cantidad = Math.max(1, accion.payload.cantidad);
     },
-    eliminarProducto: (estado, accion: PayloadAction<number>) => {
-      estado.items = estado.items.filter((item) => item.id !== accion.payload);
+    eliminarProducto: (estado, accion: PayloadAction<{ id: number; colorId?: number }>) => {
+      estado.items = estado.items.filter((item) => !mismoItem(item, accion.payload));
     },
     limpiarCarrito: (estado) => {
       estado.items = [];

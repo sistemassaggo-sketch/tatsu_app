@@ -24,6 +24,7 @@ export default async function DetalleCotizacionAlmacenPage({ params }: { params:
       items: {
         include: {
           producto: true,
+          color: { select: { nombre: true, hex: true } },
         },
       },
     },
@@ -59,6 +60,8 @@ export default async function DetalleCotizacionAlmacenPage({ params }: { params:
           id: item.id,
           codigo: item.producto.codigo,
           descripcionOriginal: item.producto.descripcionOriginal,
+          colorNombre: item.color?.nombre ?? null,
+          colorHex: item.color?.hex ?? null,
           precioUnitario: Number(item.precioUnitario),
           cantidad: item.cantidad,
           eliminado: Boolean(item.eliminado),

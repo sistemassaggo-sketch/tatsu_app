@@ -8,27 +8,54 @@ import { registrarEventoAuditoria } from "@/lib/auditoria";
 import { fechaCodigoColombia } from "@/lib/fechas";
 import { TAG_REPORTES } from "@/lib/reportes";
 
-// Al legalizarse una cotización se descuentan las existencias de cada producto y se actualiza su
-// disponibilidad. Se hace con un UPDATE atómico (con guarda "existencias >= cantidad") para que dos
-// legalizaciones concurrentes no dejen existencias negativas; si no alcanza, se corta la transacción.
-async function descontarExistencias<T extends { $queryRaw: typeof prisma.$queryRaw }>(
+// Descuenta existencias de un producto puntual (guarda atómica "existencias >= cantidad" para que
+// dos legalizaciones concurrentes no dejen existencias negativas). `etiqueta` solo se usa para el
+// mensaje de error, según si es el producto vendido o un subcomponente suyo.
+async function descontarExistenciasProducto<T extends { $queryRaw: typeof prisma.$queryRaw }>(
+  tx: T,
+  productoId: number,
+  cantidad: number,
+  etiqueta: string,
+) {
+  const [{ filas }] = await tx.$queryRaw<{ filas: bigint }[]>`
+    WITH actualizado AS (
+      UPDATE productos
+      SET existencias = existencias - ${cantidad},
+          disponibilidad = (existencias - ${cantidad}) > 0
+      WHERE id = ${productoId} AND existencias >= ${cantidad}
+      RETURNING id
+    )
+    SELECT count(*) AS filas FROM actualizado
+  `;
+
+  if (Number(filas) === 0) {
+    throw new Error(`No hay existencias suficientes ${etiqueta} para legalizar la cotización.`);
+  }
+}
+
+// Al legalizarse una cotización se descuentan las existencias de cada producto vendido y, además,
+// las de sus subcomponentes (según `cantidadRequeridaComponente` × la cantidad vendida) — un
+// producto compuesto consume stock de sus partes al legalizarse. El color elegido (si lo hay) es
+// solo informativo: no se rastrea stock por color, así que siempre se descuenta del producto.
+async function descontarExistencias<T extends { $queryRaw: typeof prisma.$queryRaw; productoComponente: typeof prisma.productoComponente }>(
   tx: T,
   items: { productoId: number; cantidad: number; producto: { codigo: string } }[],
 ) {
   for (const { productoId, cantidad, producto } of items) {
-    const [{ filas }] = await tx.$queryRaw<{ filas: bigint }[]>`
-      WITH actualizado AS (
-        UPDATE productos
-        SET existencias = existencias - ${cantidad},
-            disponibilidad = (existencias - ${cantidad}) > 0
-        WHERE id = ${productoId} AND existencias >= ${cantidad}
-        RETURNING id
-      )
-      SELECT count(*) AS filas FROM actualizado
-    `;
+    await descontarExistenciasProducto(tx, productoId, cantidad, `del producto ${producto.codigo}`);
 
-    if (Number(filas) === 0) {
-      throw new Error(`No hay existencias suficientes del producto ${producto.codigo} para legalizar la cotización.`);
+    const componentes = await tx.productoComponente.findMany({
+      where: { productoPadreId: productoId },
+      select: { cantidadRequeridaComponente: true, productoComponente: { select: { id: true, codigo: true } } },
+    });
+
+    for (const { cantidadRequeridaComponente, productoComponente } of componentes) {
+      await descontarExistenciasProducto(
+        tx,
+        productoComponente.id,
+        cantidadRequeridaComponente * cantidad,
+        `del componente ${productoComponente.codigo} (usado por ${producto.codigo})`,
+      );
     }
   }
 }
@@ -154,7 +181,9 @@ export async function actualizarCotizacionAlmacen(
       if (estadoSiguiente === "LEGALIZADO") {
         await descontarExistencias(
           tx,
-          itemsFinales.filter((entrada) => !entrada.eliminado).map(({ item, cantidad }) => ({ productoId: item.productoId, cantidad, producto: item.producto })),
+          itemsFinales
+            .filter((entrada) => !entrada.eliminado)
+            .map(({ item, cantidad }) => ({ productoId: item.productoId, cantidad, producto: item.producto })),
         );
       }
 

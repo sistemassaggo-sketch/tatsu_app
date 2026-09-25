@@ -2,6 +2,7 @@ import { auth } from "@/app/auth";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { palabrasBusqueda } from "@/lib/busqueda";
 import BotonDescargarPdf from "../../BotonDescargarPdf";
 import { ESTADOS_HISTORIAL, formatearCop, formatearFecha } from "./utilidades";
 
@@ -36,12 +37,16 @@ export default async function HistorialCotizacionesPage({
 
   const { q } = await searchParams;
   const busqueda = (q ?? "").trim();
+  // Cada palabra de la búsqueda se exige por separado (AND) para que el orden no importe.
+  const palabras = palabrasBusqueda(busqueda);
 
   const cotizaciones = await prisma.cotizacion.findMany({
     where: {
       estado: { in: ESTADOS_HISTORIAL },
       ...(clienteIdPropio ? { clienteId: clienteIdPropio } : {}),
-      ...(busqueda ? { codigo: { contains: busqueda, mode: "insensitive" as const } } : {}),
+      ...(palabras.length > 0
+        ? { AND: palabras.map((palabra) => ({ codigo: { contains: palabra, mode: "insensitive" as const } })) }
+        : {}),
     },
     include: { cliente: { select: { nombre: true } } },
     orderBy: { fechaCreacion: "desc" },

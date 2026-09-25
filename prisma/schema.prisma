@@ -51,8 +51,34 @@ model Producto {
   // Relaciones
   componentesPadre  ProductoComponente[] @relation("ProductoPadre")
   componentesHijo   ProductoComponente[] @relation("ProductoComponente")
+  colores           ProductoColor[]
 
   @@map("productos")
+}
+
+model Color {
+  id      Int              @id @default(autoincrement())
+  nombre  String           @unique @db.VarChar(60)
+  // Código hexadecimal ("#RRGGBB") con el que se pinta el círculo selector en cotizaciones.
+  hex     String           @db.VarChar(7)
+  activo  Boolean          @default(true)
+  colores ProductoColor[]
+  items   ItemCotizacion[]
+
+  @@map("colores")
+}
+
+// Solo indica qué colores están asignados a un producto; la disponibilidad real la determina
+// únicamente Color.activo (no hay stock ni habilitación por producto-color).
+model ProductoColor {
+  id         Int      @id @default(autoincrement())
+  productoId Int      @map("producto_id")
+  colorId    Int      @map("color_id")
+  producto   Producto @relation(fields: [productoId], references: [id], onDelete: Cascade)
+  color      Color    @relation(fields: [colorId], references: [id])
+
+  @@unique([productoId, colorId])
+  @@map("productos_colores")
 }
 
 model ProductoComponente {
@@ -111,6 +137,7 @@ model ItemCotizacion {
   id               Int        @id @default(autoincrement())
   cotizacionId     Int        @map("cotizacion_id")
   productoId       Int        @map("producto_id")
+  colorId          Int?       @map("color_id")
   cantidad         Int        @default(1)
   precioUnitario   Decimal    @map("precio_unitario") @db.Decimal(15, 2)
   subtotal         Decimal    @db.Decimal(15, 2)
@@ -119,6 +146,7 @@ model ItemCotizacion {
   fechaEliminacion DateTime?  @map("fecha_eliminacion")
   cotizacion       Cotizacion @relation(fields: [cotizacionId], references: [id], onDelete: Cascade)
   producto         Producto   @relation(fields: [productoId], references: [id])
+  color            Color?     @relation(fields: [colorId], references: [id])
 
   @@index([cotizacionId])
   @@index([productoId])

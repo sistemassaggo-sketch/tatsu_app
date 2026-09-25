@@ -21,7 +21,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     include: {
       cliente: true,
       vendedor: { select: { nombre: true, username: true, rol: { select: { nombre: true } } } },
-      items: { where: { eliminado: false }, include: { producto: true }, orderBy: { id: "asc" } },
+      items: { where: { eliminado: false }, include: { producto: true, color: { select: { nombre: true } } }, orderBy: { id: "asc" } },
     },
   });
 

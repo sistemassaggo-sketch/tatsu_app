@@ -14,6 +14,7 @@ function generarCodigoCotizacion() {
 type ItemCotizacionEntrada = {
   id?: number | string;
   cantidad?: number | string;
+  colorId?: number | string | null;
 };
 
 export async function POST(request: Request) {
@@ -78,12 +79,20 @@ export async function POST(request: Request) {
       items.map(async (item: ItemCotizacionEntrada) => {
         const productoId = Number(item.id);
         const cantidad = Number(item.cantidad ?? 1);
+        const colorId = item.colorId != null && item.colorId !== "" ? Number(item.colorId) : null;
 
         if (!Number.isInteger(productoId) || productoId <= 0 || !Number.isInteger(cantidad) || cantidad <= 0) {
           throw new Error("Hay productos con datos inválidos.");
         }
 
-        const producto = await prisma.producto.findUnique({ where: { id: productoId } });
+        if (colorId != null && (!Number.isInteger(colorId) || colorId <= 0)) {
+          throw new Error("Hay productos con un color inválido.");
+        }
+
+        const producto = await prisma.producto.findUnique({
+          where: { id: productoId },
+          include: { colores: { where: { color: { activo: true } } } },
+        });
 
         if (!producto) {
           throw new Error(`El producto con id ${productoId} no existe.`);
@@ -91,6 +100,21 @@ export async function POST(request: Request) {
 
         if (producto.precioBaseCop == null) {
           throw new Error(`El producto ${producto.id} no tiene precio base.`);
+        }
+
+        // El color es solo informativo (no se rastrea stock por color): si el producto tiene
+        // colores configurados, hay que elegir uno activo, pero la existencia se valida siempre
+        // contra el producto.
+        if (producto.colores.length > 0) {
+          if (colorId == null) {
+            throw new Error(`Debes elegir un color para el producto ${producto.codigo}.`);
+          }
+
+          const colorElegido = producto.colores.find((pc) => pc.colorId === colorId);
+
+          if (!colorElegido) {
+            throw new Error(`El color elegido no está disponible para el producto ${producto.codigo}.`);
+          }
         }
 
         if (!producto.disponibilidad) {
@@ -103,6 +127,7 @@ export async function POST(request: Request) {
 
         return {
           productoId,
+          colorId,
           cantidad,
           precioUnitario: Number(producto.precioBaseCop),
         };
@@ -130,6 +155,7 @@ export async function POST(request: Request) {
         items: {
           create: productosParaGuardar.map((item) => ({
             productoId: item.productoId,
+            colorId: item.colorId,
             cantidad: item.cantidad,
             precioUnitario: item.precioUnitario,
             subtotal: item.precioUnitario * item.cantidad,

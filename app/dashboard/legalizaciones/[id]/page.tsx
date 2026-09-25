@@ -24,7 +24,7 @@ export default async function DetalleLegalizacionPage({ params }: { params: Prom
       cliente: true,
       items: {
         where: { eliminado: false },
-        include: { producto: true },
+        include: { producto: true, color: { select: { nombre: true, hex: true } } },
         orderBy: { id: "asc" },
       },
     },
@@ -67,6 +67,15 @@ export default async function DetalleLegalizacionPage({ params }: { params: Prom
               <tr key={item.id} style={{ borderBottom: "1px solid #e2e8f0" }}>
                 <td style={estiloCelda}>
                   <strong>{item.producto.codigo}</strong>
+                  {item.color ? (
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, marginLeft: 8, fontSize: 13, color: "#475569" }}>
+                      <span
+                        aria-hidden="true"
+                        style={{ width: 12, height: 12, borderRadius: "50%", background: item.color.hex, border: "1px solid #cbd5e1", display: "inline-block" }}
+                      />
+                      {item.color.nombre}
+                    </span>
+                  ) : null}
                   <div style={{ color: "#475569" }}>{item.producto.descripcionOriginal}</div>
                 </td>
                 <td style={{ ...estiloCelda, textAlign: "right" }}>{formatearCop(Number(item.precioUnitario))}</td>

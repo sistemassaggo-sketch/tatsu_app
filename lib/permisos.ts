@@ -1,7 +1,7 @@
 // Módulos del dashboard a los que puede acceder cada rol (además del resumen en /dashboard).
 // El rol "admin" accede a todo.
 const modulosPorRol: Record<string, string[]> = {
-  almacen: ["/dashboard/almacen", "/dashboard/legalizaciones"],
+  almacen: ["/dashboard/almacen", "/dashboard/legalizaciones", "/dashboard/inventario"],
   comercial: ["/dashboard/cotizaciones", "/dashboard/legalizaciones"],
   // El rol "cliente" solo cotiza para su propio cliente asociado y no puede usar la opción minorista.
   cliente: ["/dashboard/cotizaciones"],

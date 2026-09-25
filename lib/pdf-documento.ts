@@ -136,6 +136,7 @@ export type DatosDocumentoPdf = {
     subtotal: unknown;
     eliminado?: boolean;
     producto: { codigo: string; descripcionOriginal: string };
+    color?: { nombre: string } | null;
   }[];
   descuentoPorcentaje: number;
   total?: unknown;
@@ -309,7 +310,12 @@ export async function generarPdfDocumento(datos: DatosDocumentoPdf) {
           { text: item.producto.codigo, fontSize: 8, color, alignment: "center" as const, margin: [0, 2, 0, 0] as [number, number, number, number] },
         ],
       },
-      { text: descripcion, fontSize: 7.5, color },
+      {
+        stack: [
+          { text: descripcion, fontSize: 7.5, color },
+          ...(item.color ? [{ text: `Color: ${item.color.nombre}`, fontSize: 7, color, italics: true }] : []),
+        ],
+      },
       { text: String(item.cantidad), fontSize: 9, color, alignment: "right" as const },
       { text: formatearCop(Number(item.precioUnitario)), fontSize: 9, color, alignment: "right" as const },
       { text: item.eliminado ? "Eliminado" : formatearCop(Number(item.subtotal)), fontSize: 9, color, alignment: "right" as const },

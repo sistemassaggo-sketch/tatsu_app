@@ -3,6 +3,7 @@ import { auth } from "@/app/auth";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { palabrasBusqueda } from "@/lib/busqueda";
 import ClienteSelector from "./ClienteSelector";
 import ProductosCotizacion from "./ProductosCotizacion";
 import CarritoCotizacion from "./CarritoCotizacion";
@@ -30,6 +31,21 @@ export default async function CotizacionesPage({
   const paginaSolicitada = Number(parametros.pagina ?? "1");
   const paginaActual = Number.isInteger(paginaSolicitada) && paginaSolicitada > 0 ? paginaSolicitada : 1;
 
+  // Cada palabra de la búsqueda se exige por separado (AND) para que el orden no importe: buscar
+  // "150 roja" encuentra lo mismo que "roja 150".
+  const palabras = palabrasBusqueda(busqueda);
+  const filtroProductos =
+    palabras.length > 0
+      ? {
+          AND: palabras.map((palabra) => ({
+            OR: [
+              { codigo: { contains: palabra, mode: "insensitive" as const } },
+              { descripcionOriginal: { contains: palabra, mode: "insensitive" as const } },
+            ],
+          })),
+        }
+      : undefined;
+
   // El rol "cliente" no elige cliente: cotiza siempre para el suyo propio, asociado a su usuario.
   const [clienteFijo, clientes, totalProductos, productosBase] = await Promise.all([
     esRolCliente
@@ -48,24 +64,10 @@ export default async function CotizacionesPage({
           orderBy: { nombre: "asc" },
         }),
     prisma.producto.count({
-      where: busqueda
-        ? {
-            OR: [
-              { codigo: { contains: busqueda, mode: "insensitive" } },
-              { descripcionOriginal: { contains: busqueda, mode: "insensitive" } },
-            ],
-          }
-        : undefined,
+      where: filtroProductos,
     }),
     prisma.producto.findMany({
-      where: busqueda
-        ? {
-            OR: [
-              { codigo: { contains: busqueda, mode: "insensitive" } },
-              { descripcionOriginal: { contains: busqueda, mode: "insensitive" } },
-            ],
-          }
-        : undefined,
+      where: filtroProductos,
       orderBy: { codigo: "asc" },
       skip: (paginaActual - 1) * productosPorPagina,
       take: productosPorPagina,
@@ -76,8 +78,12 @@ export default async function CotizacionesPage({
         precioBaseCop: true,
         urlId: true,
         casaFamilia: true,
-        linea: true, 
+        linea: true,
         tipoAcabado: true,
+        colores: {
+          where: { color: { activo: true } },
+          select: { color: { select: { id: true, nombre: true, hex: true } } },
+        },
       },
     }),
   ]);
@@ -85,6 +91,11 @@ export default async function CotizacionesPage({
   const productos = productosBase.map((producto) => ({
     ...producto,
     precioBaseCop: producto.precioBaseCop ? Number(producto.precioBaseCop) : null,
+    colores: producto.colores.map((pc) => ({
+      id: pc.color.id,
+      nombre: pc.color.nombre,
+      hex: pc.color.hex,
+    })),
   }));
 
   const totalPaginas = Math.max(1, Math.ceil(totalProductos / productosPorPagina));

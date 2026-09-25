@@ -2,8 +2,11 @@ import { auth } from "@/app/auth";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { palabrasBusqueda } from "@/lib/busqueda";
 import BuscadorInventario from "./BuscadorInventario";
 import FilaProductoInventario from "./FilaProductoInventario";
+import ColoresCatalogo from "./ColoresCatalogo";
+import CrearProducto from "./CrearProducto";
 
 const productosPorPagina = 10;
 
@@ -13,26 +16,38 @@ export default async function InventarioPage({
   searchParams: Promise<{ busqueda?: string; pagina?: string }>;
 }) {
   const session = await auth();
+  const rolUsuario = session?.user?.role ?? "";
 
-  if (session?.user?.role !== "admin") {
+  if (!["admin", "almacen"].includes(rolUsuario)) {
     redirect("/dashboard");
   }
+
+  // El catálogo general de colores (crear/editar/inhabilitar colores) es exclusivo de admin;
+  // almacén puede ver y editar productos (incluida la asignación de colores ya existentes) pero no
+  // administrar el catálogo.
+  const esAdmin = rolUsuario === "admin";
 
   const parametros = await searchParams;
   const busqueda = parametros.busqueda?.trim() ?? "";
   const paginaSolicitada = Number(parametros.pagina ?? "1");
   const paginaActual = Number.isInteger(paginaSolicitada) && paginaSolicitada > 0 ? paginaSolicitada : 1;
 
-  const filtro = busqueda
-    ? {
-        OR: [
-          { codigo: { contains: busqueda, mode: "insensitive" as const } },
-          { descripcionOriginal: { contains: busqueda, mode: "insensitive" as const } },
-        ],
-      }
-    : undefined;
+  // Cada palabra de la búsqueda se exige por separado (AND) para que el orden no importe: buscar
+  // "150 roja" encuentra lo mismo que "roja 150".
+  const palabras = palabrasBusqueda(busqueda);
+  const filtro =
+    palabras.length > 0
+      ? {
+          AND: palabras.map((palabra) => ({
+            OR: [
+              { codigo: { contains: palabra, mode: "insensitive" as const } },
+              { descripcionOriginal: { contains: palabra, mode: "insensitive" as const } },
+            ],
+          })),
+        }
+      : undefined;
 
-  const [totalProductos, productosBase] = await Promise.all([
+  const [totalProductos, productosBase, coloresDisponibles] = await Promise.all([
     prisma.producto.count({ where: filtro }),
     prisma.producto.findMany({
       where: filtro,
@@ -61,8 +76,20 @@ export default async function InventarioPage({
               }
             }
           }
-        }
+        },
+        colores: {
+          select: {
+            color: { select: { id: true, nombre: true, hex: true } },
+          },
+        },
       },
+    }),
+    // El catálogo de gestión trae todos los colores (también los inhabilitados), para poder
+    // reactivarlos; el buscador para asignar un color a un producto (BuscadorColor) solo trae los
+    // activos, vía su propia consulta a /api/colores/buscar.
+    prisma.color.findMany({
+      orderBy: { nombre: "asc" },
+      select: { id: true, nombre: true, hex: true, activo: true },
     }),
   ]);
 
@@ -83,7 +110,12 @@ export default async function InventarioPage({
       existencias: pr.productoComponente.existencias,
       precioBaseCop: pr.productoComponente.precioBaseCop ? Number(pr.productoComponente.precioBaseCop) : null,
       cantidadRequerida: pr.cantidadRequeridaComponente
-    }))
+    })),
+    colores: producto.colores.map((pc) => ({
+      id: pc.color.id,
+      nombre: pc.color.nombre,
+      hex: pc.color.hex,
+    })),
   }));
 
   const totalPaginas = Math.max(1, Math.ceil(totalProductos / productosPorPagina));
@@ -102,6 +134,16 @@ export default async function InventarioPage({
       <p style={{ color: "#475569", lineHeight: 1.7, marginBottom: 24 }}>
         Consulta los productos y edita su descripción original y precio.
       </p>
+
+      <div style={{ marginBottom: 20 }}>
+        <CrearProducto />
+      </div>
+
+      {esAdmin ? (
+        <div style={{ marginBottom: 20 }}>
+          <ColoresCatalogo colores={coloresDisponibles} />
+        </div>
+      ) : null}
 
       <div style={{ marginBottom: 20 }}>
         <BuscadorInventario />

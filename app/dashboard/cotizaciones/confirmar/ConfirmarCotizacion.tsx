@@ -17,6 +17,12 @@ import {
   type RootState,
 } from "@/store/cotizacion";
 
+// Identifica una línea del carrito: dos líneas del mismo producto en colores distintos son líneas
+// independientes, así que la clave debe incluir el color.
+function claveItem(item: { id: number; colorId?: number }) {
+  return `${item.id}-${item.colorId ?? "sin-color"}`;
+}
+
 export default function ConfirmarCotizacion({ esRolCliente = false }: { esRolCliente?: boolean }) {
   const router = useRouter();
   const dispatch = useDispatch();
@@ -26,7 +32,7 @@ export default function ConfirmarCotizacion({ esRolCliente = false }: { esRolCli
   const estadoPersistido = leerEstadoPersistido();
   const items = itemsRedux.length > 0 ? itemsRedux : estadoPersistido.items;
   const cliente = clienteRedux ?? estadoPersistido.cliente;
-  const [cantidadesEditadas, setCantidadesEditadas] = useState<Record<number, string>>({});
+  const [cantidadesEditadas, setCantidadesEditadas] = useState<Record<string, string>>({});
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState("");
   const [exito, setExito] = useState("");
@@ -171,7 +177,7 @@ export default function ConfirmarCotizacion({ esRolCliente = false }: { esRolCli
       ) : (
         <div style={{ display: "grid", gap: 18 }}>
           {items.map((item) => (
-            <article key={item.id} style={estiloProductoFila}>
+            <article key={claveItem(item)} style={estiloProductoFila}>
               <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
                 <div style={{ width: 64, height: 64, borderRadius: 12, background: "#eef6fb", display: "grid", placeItems: "center", overflow: "hidden", position: "relative" }}>
                   {item.imagen ? (
@@ -181,7 +187,19 @@ export default function ConfirmarCotizacion({ esRolCliente = false }: { esRolCli
                   )}
                 </div>
                 <div>
-                  <p style={{ fontWeight: 800 }}>{item.codigo}</p>
+                  <p style={{ fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}>
+                    {item.codigo}
+                    {item.colorNombre ? (
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontWeight: 600, fontSize: 13, color: "#475569" }}>
+                        <span
+                          aria-hidden="true"
+                          title={item.colorNombre}
+                          style={{ width: 14, height: 14, borderRadius: "50%", background: item.colorHex ?? "#cbd5e1", border: "1px solid #cbd5e1", display: "inline-block" }}
+                        />
+                        {item.colorNombre}
+                      </span>
+                    ) : null}
+                  </p>
                   <p style={{ color: "#475569" }}>{item.descripcionGeneral}</p>
                 </div>
               </div>
@@ -193,12 +211,12 @@ export default function ConfirmarCotizacion({ esRolCliente = false }: { esRolCli
                     type="text"
                     inputMode="numeric"
                     pattern="[0-9]*"
-                    value={cantidadesEditadas[item.id] ?? String(item.cantidad)}
+                    value={cantidadesEditadas[claveItem(item)] ?? String(item.cantidad)}
                     onChange={(event) => {
                       const valorTexto = event.target.value;
 
                       if (valorTexto === "") {
-                        setCantidadesEditadas((estado) => ({ ...estado, [item.id]: "" }));
+                        setCantidadesEditadas((estado) => ({ ...estado, [claveItem(item)]: "" }));
                         return;
                       }
 
@@ -207,8 +225,8 @@ export default function ConfirmarCotizacion({ esRolCliente = false }: { esRolCli
                       }
 
                       const valor = Number(valorTexto);
-                      setCantidadesEditadas((estado) => ({ ...estado, [item.id]: String(valor) }));
-                      dispatch(actualizarCantidad({ id: item.id, cantidad: valor }));
+                      setCantidadesEditadas((estado) => ({ ...estado, [claveItem(item)]: String(valor) }));
+                      dispatch(actualizarCantidad({ id: item.id, colorId: item.colorId, cantidad: valor }));
                     }}
                     style={{ ...estiloCampo, width: 80 }}
                   />
@@ -219,7 +237,7 @@ export default function ConfirmarCotizacion({ esRolCliente = false }: { esRolCli
                   <p style={{ fontWeight: 800, color: "#176B87" }}>Total: {formatearCop(item.precio * item.cantidad)}</p>
                   <button
                     type="button"
-                    onClick={() => dispatch(eliminarProducto(item.id))}
+                    onClick={() => dispatch(eliminarProducto({ id: item.id, colorId: item.colorId }))}
                     style={{ ...estiloBotonEliminar, marginTop: 8 }}
                   >
                     Eliminar

@@ -5,6 +5,8 @@ import { useState, type CSSProperties } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { agregarProducto, type RootState } from "@/store/cotizacion";
 
+type ColorProducto = { id: number; nombre: string; hex: string };
+
 type Producto = {
   id: number;
   codigo: string;
@@ -13,6 +15,7 @@ type Producto = {
   urlId?: string | null;
   casaFamilia?: string | null;
   tipoAcabado?: string | null;
+  colores?: ColorProducto[];
 };
 
 export default function ProductosCotizacion({ productos }: { productos: Producto[] }) {
@@ -20,12 +23,33 @@ export default function ProductosCotizacion({ productos }: { productos: Producto
   const items = useSelector((state: RootState) => state.cotizacion.items);
   const [productoSeleccionado, setProductoSeleccionado] = useState<Producto | null>(null);
   const [productoHoverId, setProductoHoverId] = useState<number | null>(null);
+  // Color elegido por producto mientras se decide qué agregar (solo aplica a productos con colores).
+  const [colorElegidoPorProducto, setColorElegidoPorProducto] = useState<Record<number, number>>({});
+
+  function agregarAlCarrito(producto: Producto, color?: ColorProducto) {
+    dispatch(
+      agregarProducto({
+        id: producto.id,
+        codigo: producto.codigo,
+        descripcionGeneral: producto.descripcionOriginal,
+        precio: Number(producto.precioBaseCop ?? 0),
+        imagen: producto.urlId ?? "",
+        colorId: color?.id,
+        colorNombre: color?.nombre,
+        colorHex: color?.hex,
+      }),
+    );
+  }
 
   return (
     <>
       <div style={{ display: "grid", gap: 12 }}>
         {productos.map((producto) => {
-          const yaAgregado = items.some((item) => item.id === producto.id);
+          const tieneColores = (producto.colores?.length ?? 0) > 0;
+          const colorIdElegido = colorElegidoPorProducto[producto.id];
+          const yaAgregado = tieneColores
+            ? items.some((item) => item.id === producto.id && item.colorId === colorIdElegido)
+            : items.some((item) => item.id === producto.id && item.colorId == null);
 
           return (
             <article key={producto.id} style={estiloProductoFila}>
@@ -101,27 +125,58 @@ export default function ProductosCotizacion({ productos }: { productos: Producto
                 </div>
               </div>
 
+              {tieneColores ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 13, color: "#475569", fontWeight: 600 }}>Color:</span>
+                  {producto.colores!.map((color) => {
+                    const elegido = colorIdElegido === color.id;
+
+                    return (
+                      <button
+                        key={color.id}
+                        type="button"
+                        aria-label={color.nombre}
+                        title={color.nombre}
+                        onClick={() => setColorElegidoPorProducto((estado) => ({ ...estado, [producto.id]: color.id }))}
+                        style={{
+                          width: 26,
+                          height: 26,
+                          borderRadius: "50%",
+                          background: color.hex,
+                          border: elegido ? "3px solid #176B87" : "2px solid #cbd5e1",
+                          cursor: "pointer",
+                          padding: 0,
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+              ) : null}
+
               <button
                 type="button"
-                onClick={() =>
-                  dispatch(
-                    agregarProducto({
-                      id: producto.id,
-                      codigo: producto.codigo,
-                      descripcionGeneral: producto.descripcionOriginal,
-                      precio: Number(producto.precioBaseCop ?? 0),
-                      imagen: producto.urlId ?? "",
-                    }),
-                  )
-                }
-                disabled={yaAgregado}
+                onClick={() => {
+                  if (tieneColores) {
+                    const color = producto.colores!.find((c) => c.id === colorIdElegido);
+
+                    if (!color) {
+                      return;
+                    }
+
+                    agregarAlCarrito(producto, color);
+                    return;
+                  }
+
+                  agregarAlCarrito(producto);
+                }}
+                disabled={yaAgregado || (tieneColores && colorIdElegido == null)}
                 style={{
                   ...estiloBotonNaranja,
-                  opacity: yaAgregado ? 0.6 : 1,
-                  cursor: yaAgregado ? "not-allowed" : "pointer",
+                  opacity: yaAgregado || (tieneColores && colorIdElegido == null) ? 0.6 : 1,
+                  cursor: yaAgregado || (tieneColores && colorIdElegido == null) ? "not-allowed" : "pointer",
                 }}
               >
-                {yaAgregado ? "Agregado" : "Agregar"}
+                {yaAgregado ? "Agregado" : tieneColores && colorIdElegido == null ? "Elige un color" : "Agregar"}
               </button>
             </article>
           );

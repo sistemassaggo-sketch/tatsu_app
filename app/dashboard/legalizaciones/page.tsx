@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { formatearFechaHora } from "@/lib/fechas";
+import { palabrasBusqueda } from "@/lib/busqueda";
 
 export default async function LegalizacionesPage({
   searchParams,
@@ -17,10 +18,15 @@ export default async function LegalizacionesPage({
     redirect("/dashboard");
   }
 
+  // Cada palabra de la búsqueda se exige por separado (AND) para que el orden no importe.
+  const palabras = palabrasBusqueda(busqueda);
+
   const cotizaciones = await prisma.cotizacion.findMany({
     where: {
       estado: "LEGALIZADO",
-      ...(busqueda ? { codigoLegalizacion: { contains: busqueda, mode: "insensitive" as const } } : {}),
+      ...(palabras.length > 0
+        ? { AND: palabras.map((palabra) => ({ codigoLegalizacion: { contains: palabra, mode: "insensitive" as const } })) }
+        : {}),
     },
     include: { cliente: { select: { id: true, nombre: true } } },
     orderBy: { fechaCreacion: "desc" },
