@@ -42,7 +42,7 @@ async function consultarReportes(anio: number): Promise<DatosReportes> {
       SELECT to_char(date_trunc('month', (fecha_creacion AT TIME ZONE 'UTC') AT TIME ZONE ${ZONA_HORARIA}), 'YYYY-MM') AS mes,
              COALESCE(SUM(total), 0)::float8 AS total,
              COUNT(*)::int AS legalizaciones
-      FROM cotizaciones
+      FROM public.cotizaciones
       WHERE estado = 'LEGALIZADO'
         AND date_part('year', (fecha_creacion AT TIME ZONE 'UTC') AT TIME ZONE ${ZONA_HORARIA}) = ${anio}
       GROUP BY 1
@@ -50,9 +50,9 @@ async function consultarReportes(anio: number): Promise<DatosReportes> {
     // Productos más vendidos en legalizaciones del año elegido (sin contar ítems eliminados).
     prisma.$queryRaw<{ id: number; codigo: string; descripcion: string; unidades: number }[]>`
       SELECT p.id, p.codigo, p.descripcion_original AS descripcion, SUM(i.cantidad)::int AS unidades
-      FROM item_cotizacion i
-      JOIN cotizaciones c ON c.id = i.cotizacion_id
-      JOIN productos p ON p.id = i.producto_id
+      FROM public.item_cotizacion i
+      JOIN public.cotizaciones c ON c.id = i.cotizacion_id
+      JOIN public.productos p ON p.id = i.producto_id
       WHERE c.estado = 'LEGALIZADO' AND i.eliminado = false
         AND date_part('year', (c.fecha_creacion AT TIME ZONE 'UTC') AT TIME ZONE ${ZONA_HORARIA}) = ${anio}
       GROUP BY p.id, p.codigo, p.descripcion_original
@@ -63,7 +63,7 @@ async function consultarReportes(anio: number): Promise<DatosReportes> {
       SELECT
         COUNT(*) FILTER (WHERE es_minorista = true)::int AS minoristas,
         COUNT(*) FILTER (WHERE es_minorista = false)::int AS mayoristas
-      FROM cotizaciones
+      FROM public.cotizaciones
       WHERE estado = 'LEGALIZADO'
         AND date_part('year', (fecha_creacion AT TIME ZONE 'UTC') AT TIME ZONE ${ZONA_HORARIA}) = ${anio}`,
     // Cotizaciones creadas por mes del año elegido, sin importar en qué estado hayan quedado (para
@@ -71,7 +71,7 @@ async function consultarReportes(anio: number): Promise<DatosReportes> {
     prisma.$queryRaw<{ mes: string; cotizaciones: number }[]>`
       SELECT to_char(date_trunc('month', (fecha_creacion AT TIME ZONE 'UTC') AT TIME ZONE ${ZONA_HORARIA}), 'YYYY-MM') AS mes,
              COUNT(*)::int AS cotizaciones
-      FROM cotizaciones
+      FROM public.cotizaciones
       WHERE eliminado = false
         AND date_part('year', (fecha_creacion AT TIME ZONE 'UTC') AT TIME ZONE ${ZONA_HORARIA}) = ${anio}
       GROUP BY 1
@@ -126,7 +126,7 @@ function completarComparativoMensual(
 async function consultarAniosDisponibles(): Promise<number[]> {
   const filas = await prisma.$queryRaw<{ anio: number }[]>`
     SELECT DISTINCT date_part('year', (fecha_creacion AT TIME ZONE 'UTC') AT TIME ZONE ${ZONA_HORARIA})::int AS anio
-    FROM cotizaciones
+    FROM public.cotizaciones
     WHERE estado = 'LEGALIZADO'
     ORDER BY anio DESC`;
 

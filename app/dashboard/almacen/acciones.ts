@@ -19,7 +19,7 @@ async function descontarExistenciasProducto<T extends { $queryRaw: typeof prisma
 ) {
   const [{ filas }] = await tx.$queryRaw<{ filas: bigint }[]>`
     WITH actualizado AS (
-      UPDATE productos
+      UPDATE public.productos
       SET existencias = existencias - ${cantidad},
           disponibilidad = (existencias - ${cantidad}) > 0
       WHERE id = ${productoId} AND existencias >= ${cantidad}
