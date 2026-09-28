@@ -35,7 +35,14 @@ export const ERROR_RESTABLECER_CONTRASENA = "RESTABLECER_CONTRASENA";
 
 export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
-  session: { strategy: "jwt" },
+  session: {
+    strategy: "jwt",
+    // Sesión deslizante: mientras haya actividad (el SessionProvider sondea /api/auth/session, ver
+    // proveedor-sesion.tsx), NextAuth reemite el JWT cada updateAge con un exp nuevo, así que la
+    // sesión no vence. Si el usuario queda inactivo 30 min seguidos, el JWT expira y proxy.ts lo saca.
+    maxAge: 30 * 60,
+    updateAge: 5 * 60,
+  },
   pages: { signIn: "/" },
   providers: [
     CredentialsProvider({

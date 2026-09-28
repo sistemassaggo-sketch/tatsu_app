@@ -8,16 +8,25 @@ export type ProductoCotizacion = {
   imagen: string;
   cantidad: number;
   // Un mismo producto puede pedirse en varios colores dentro de la misma cotización: cada color
-  // es una línea independiente en el carrito, por eso la identidad de una línea es (id, colorId).
+  // es una línea independiente en el carrito, por eso la identidad de una línea es
+  // (id, colorId, apliqueId).
   colorId?: number;
   colorNombre?: string;
   colorHex?: string;
+  // El aplique es opcional (a diferencia del color, que si el producto lo tiene es obligatorio).
+  apliqueId?: number;
+  apliqueNombre?: string;
+  apliqueHex?: string;
 };
 
-// Dos líneas del carrito son "el mismo ítem" si son el mismo producto Y el mismo color (o ninguno
-// de los dos tiene color). Se usa en vez de comparar solo `id` para no fusionar rojo con azul.
-function mismoItem(a: { id: number; colorId?: number }, b: { id: number; colorId?: number }) {
-  return a.id === b.id && (a.colorId ?? null) === (b.colorId ?? null);
+// Dos líneas del carrito son "el mismo ítem" si son el mismo producto Y el mismo color Y el mismo
+// aplique (o ninguno tiene). Se usa en vez de comparar solo `id` para no fusionar rojo con azul, ni
+// una línea con aplique con otra sin él.
+function mismoItem(
+  a: { id: number; colorId?: number; apliqueId?: number },
+  b: { id: number; colorId?: number; apliqueId?: number },
+) {
+  return a.id === b.id && (a.colorId ?? null) === (b.colorId ?? null) && (a.apliqueId ?? null) === (b.apliqueId ?? null);
 }
 
 export type ClienteCotizacion = {
@@ -94,7 +103,7 @@ const sliceCotizacion = createSlice({
         cantidad: 1,
       });
     },
-    actualizarCantidad: (estado, accion: PayloadAction<{ id: number; colorId?: number; cantidad: number }>) => {
+    actualizarCantidad: (estado, accion: PayloadAction<{ id: number; colorId?: number; apliqueId?: number; cantidad: number }>) => {
       const producto = estado.items.find((item) => mismoItem(item, accion.payload));
 
       if (!producto) {
@@ -103,7 +112,7 @@ const sliceCotizacion = createSlice({
 
       producto.cantidad = Math.max(1, accion.payload.cantidad);
     },
-    eliminarProducto: (estado, accion: PayloadAction<{ id: number; colorId?: number }>) => {
+    eliminarProducto: (estado, accion: PayloadAction<{ id: number; colorId?: number; apliqueId?: number }>) => {
       estado.items = estado.items.filter((item) => !mismoItem(item, accion.payload));
     },
     limpiarCarrito: (estado) => {

@@ -84,6 +84,10 @@ export default async function CotizacionesPage({
           where: { color: { activo: true } },
           select: { color: { select: { id: true, nombre: true, hex: true } } },
         },
+        apliques: {
+          where: { aplique: { activo: true } },
+          select: { aplique: { select: { id: true, nombre: true, hex: true, familias: true } } },
+        },
       },
     }),
   ]);
@@ -95,6 +99,12 @@ export default async function CotizacionesPage({
       id: pc.color.id,
       nombre: pc.color.nombre,
       hex: pc.color.hex,
+    })),
+    apliques: producto.apliques.map((pa) => ({
+      id: pa.aplique.id,
+      nombre: pa.aplique.nombre,
+      hex: pa.aplique.hex,
+      familias: pa.aplique.familias,
     })),
   }));
 
@@ -137,11 +147,11 @@ export default async function CotizacionesPage({
           {totalProductos > productosPorPagina ? (
             <nav aria-label="Paginación de productos" style={estiloPaginacion}>
               {paginaValida > 1 ? (
-                <a href={`/dashboard/cotizaciones?busqueda=${encodeURIComponent(busqueda)}&pagina=${paginaValida - 1}`} style={estiloBotonSecundario}>Anterior</a>
+                <Link href={`/dashboard/cotizaciones?busqueda=${encodeURIComponent(busqueda)}&pagina=${paginaValida - 1}`} scroll={false} style={estiloBotonSecundario}>Anterior</Link>
               ) : <span />}
               <span style={{ color: "#475569" }}>Página {paginaValida} de {totalPaginas}</span>
               {paginaValida < totalPaginas ? (
-                <a href={`/dashboard/cotizaciones?busqueda=${encodeURIComponent(busqueda)}&pagina=${paginaValida + 1}`} style={estiloBotonSecundario}>Siguiente</a>
+                <Link href={`/dashboard/cotizaciones?busqueda=${encodeURIComponent(busqueda)}&pagina=${paginaValida + 1}`} scroll={false} style={estiloBotonSecundario}>Siguiente</Link>
               ) : <span />}
             </nav>
           ) : null}

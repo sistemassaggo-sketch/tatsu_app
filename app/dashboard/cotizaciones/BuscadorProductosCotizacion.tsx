@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type CSSProperties, type FormEvent } from "react";
+import { useState, type CSSProperties, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 export default function BuscadorProductosCotizacion() {
@@ -8,10 +8,14 @@ export default function BuscadorProductosCotizacion() {
   const parametros = useSearchParams();
   const busquedaActual = parametros.get("busqueda") ?? "";
   const [valorBusqueda, setValorBusqueda] = useState(busquedaActual);
+  const [busquedaPrevia, setBusquedaPrevia] = useState(busquedaActual);
 
-  useEffect(() => {
+  // Si la URL cambia por fuera (por ejemplo, al volver con el botón atrás), se sincroniza el campo
+  // durante el render en vez de con un efecto.
+  if (busquedaActual !== busquedaPrevia) {
+    setBusquedaPrevia(busquedaActual);
     setValorBusqueda(busquedaActual);
-  }, [busquedaActual]);
+  }
 
   const manejarEnvio = (evento: FormEvent<HTMLFormElement>) => {
     evento.preventDefault();
@@ -26,7 +30,9 @@ export default function BuscadorProductosCotizacion() {
     }
 
     parametrosSiguientes.set("pagina", "1");
-    router.push(`/dashboard/cotizaciones?${parametrosSiguientes.toString()}`);
+    // scroll: false evita que la navegación salte al inicio de la página, para no perder la posición
+    // en la que estaba el usuario (p. ej. viendo el carrito) al buscar.
+    router.push(`/dashboard/cotizaciones?${parametrosSiguientes.toString()}`, { scroll: false });
   };
 
   return (

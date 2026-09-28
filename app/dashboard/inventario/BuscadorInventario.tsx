@@ -30,7 +30,9 @@ export default function BuscadorInventario() {
     }
 
     parametrosSiguientes.set("pagina", "1");
-    router.push(`/dashboard/inventario?${parametrosSiguientes.toString()}`);
+    // scroll: false evita que la navegación salte al inicio de la página, para no perder la posición
+    // en la que estaba el usuario al buscar.
+    router.push(`/dashboard/inventario?${parametrosSiguientes.toString()}`, { scroll: false });
   };
 
   return (

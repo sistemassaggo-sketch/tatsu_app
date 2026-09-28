@@ -135,8 +135,9 @@ export type DatosDocumentoPdf = {
     precioUnitario: unknown;
     subtotal: unknown;
     eliminado?: boolean;
-    producto: { codigo: string; descripcionOriginal: string };
+    producto: { id: number; codigo: string; descripcionOriginal: string };
     color?: { nombre: string } | null;
+    aplique?: { nombre: string } | null;
   }[];
   descuentoPorcentaje: number;
   total?: unknown;
@@ -294,31 +295,113 @@ export async function generarPdfDocumento(datos: DatosDocumentoPdf) {
     alignment: indice >= 2 ? ("right" as const) : ("left" as const),
   }));
 
-  const filasProductos = datos.items.map((item) => {
-    const color = item.eliminado ? GRIS : NEGRO;
+  // Un mismo producto pedido en varias combinaciones de color/aplique ocupa una sola fila: la
+  // cantidad se agrupa por producto y cada combinación se lista como una línea dentro de la
+  // descripción (en vez de repetir la fila completa una vez por color/aplique).
+  type ComboProducto = {
+    cantidad: number;
+    precioUnitario: number;
+    subtotal: number;
+    eliminado: boolean;
+    color?: string;
+    aplique?: string;
+  };
+  type GrupoProducto = {
+    producto: { codigo: string; descripcionOriginal: string };
+    combos: ComboProducto[];
+  };
+
+  const gruposProductos: GrupoProducto[] = [];
+  const indicePorProductoId = new Map<number, number>();
+
+  for (const item of datos.items) {
+    let indice = indicePorProductoId.get(item.producto.id);
+
+    if (indice === undefined) {
+      indice = gruposProductos.length;
+      indicePorProductoId.set(item.producto.id, indice);
+      gruposProductos.push({ producto: item.producto, combos: [] });
+    }
+
+    gruposProductos[indice].combos.push({
+      cantidad: item.cantidad,
+      precioUnitario: Number(item.precioUnitario),
+      subtotal: Number(item.subtotal),
+      eliminado: Boolean(item.eliminado),
+      color: item.color?.nombre,
+      aplique: item.aplique?.nombre,
+    });
+  }
+
+  const filasProductos = gruposProductos.map((grupo) => {
+    const combosActivos = grupo.combos.filter((combo) => !combo.eliminado);
+    const hayEliminados = combosActivos.length < grupo.combos.length;
+    const todosEliminados = combosActivos.length === 0;
+    const color = todosEliminados ? GRIS : NEGRO;
+    const cantidadTotal = combosActivos.reduce((suma, combo) => suma + combo.cantidad, 0);
+    const importeTotal = combosActivos.reduce((suma, combo) => suma + combo.subtotal, 0);
+    const precioUnitario = (combosActivos[0] ?? grupo.combos[0]).precioUnitario;
+
     // Se recorta la descripción como salvaguarda: pdfmake ajusta el texto solo, así que no hace
     // falta partirla en líneas a mano como con pdf-lib, solo evitar filas desmesuradas.
     const descripcion =
-      item.producto.descripcionOriginal.length > 160
-        ? `${item.producto.descripcionOriginal.slice(0, 160)}…`
-        : item.producto.descripcionOriginal;
+      grupo.producto.descripcionOriginal.length > 160
+        ? `${grupo.producto.descripcionOriginal.slice(0, 160)}…`
+        : grupo.producto.descripcionOriginal;
+
+    // Con una sola combinación, la cantidad ya la muestra su propia columna: no hace falta repetirla
+    // en la etiqueta. Con varias, cada línea indica su color/aplique y cuántas unidades le corresponden.
+    const lineasCombo = grupo.combos.map((combo) => {
+      const partes: string[] = [];
+
+      if (combo.color) {
+        partes.push(`Color: ${combo.color} `);
+      }
+
+      if (combo.aplique) {
+        partes.push(`Aplique: ${combo.aplique} `);
+      }
+
+      if (partes.length === 0 && grupo.combos.length === 1) {
+        return null;
+      }
+
+      const etiqueta = partes.length > 0 ? partes.join(" · ") : "Estándar";
+      const sufijo = grupo.combos.length > 1 ? ` ( x${combo.cantidad}${combo.eliminado ? " (Eliminado)" : ""} )` : "";
+
+      return { etiqueta, sufijo, eliminado: combo.eliminado };
+    });
 
     return [
       {
         stack: [
-          { svg: generarSvgCodigoBarras(String(item.id)), width: 80, height: 12 },
-          { text: item.producto.codigo, fontSize: 8, color, alignment: "center" as const, margin: [0, 2, 0, 0] as [number, number, number, number] },
+          { svg: generarSvgCodigoBarras(grupo.producto.codigo), width: 80, height: 12 },
+          { text: grupo.producto.codigo, fontSize: 8, color, alignment: "center" as const, margin: [0, 2, 0, 0] as [number, number, number, number] },
         ],
       },
       {
         stack: [
           { text: descripcion, fontSize: 7.5, color },
-          ...(item.color ? [{ text: `Color: ${item.color.nombre}`, fontSize: 7, color, italics: true }] : []),
+          ...lineasCombo
+            .filter((linea): linea is { etiqueta: string; sufijo: string; eliminado: boolean } => linea !== null)
+            .map((linea) => ({
+              text: [
+                { text: linea.etiqueta, italics: true },
+                { text: linea.sufijo, bold: true, italics: true },
+              ],
+              fontSize: 7,
+              color: linea.eliminado ? GRIS : color,
+            })),
         ],
       },
-      { text: String(item.cantidad), fontSize: 9, color, alignment: "right" as const },
-      { text: formatearCop(Number(item.precioUnitario)), fontSize: 9, color, alignment: "right" as const },
-      { text: item.eliminado ? "Eliminado" : formatearCop(Number(item.subtotal)), fontSize: 9, color, alignment: "right" as const },
+      { text: String(cantidadTotal), fontSize: 9, color, alignment: "right" as const },
+      { text: formatearCop(precioUnitario), fontSize: 9, color, alignment: "right" as const },
+      {
+        text: todosEliminados ? "Eliminado" : `${formatearCop(importeTotal)}${hayEliminados ? "*" : ""}`,
+        fontSize: 9,
+        color,
+        alignment: "right" as const,
+      },
     ];
   });
 

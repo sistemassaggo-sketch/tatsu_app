@@ -40,7 +40,15 @@ export default async function DetalleCotizacionHistorialPage({ params }: { param
     where: { id: cotizacionId },
     include: {
       cliente: true,
-      items: { where: { eliminado: false }, include: { producto: true, color: { select: { nombre: true, hex: true } } }, orderBy: { id: "asc" } },
+      items: {
+        where: { eliminado: false },
+        include: {
+          producto: true,
+          color: { select: { nombre: true, hex: true } },
+          aplique: { select: { nombre: true } },
+        },
+        orderBy: { id: "asc" },
+      },
     },
   });
 
@@ -96,6 +104,9 @@ export default async function DetalleCotizacionHistorialPage({ params }: { param
                       />
                       {item.color.nombre}
                     </span>
+                  ) : null}
+                  {item.aplique ? (
+                    <span style={{ marginLeft: 8, fontSize: 13, color: "#475569" }}>Aplique: {item.aplique.nombre}</span>
                   ) : null}
                   <div style={{ color: "#475569" }}>{item.producto.descripcionOriginal}</div>
                 </td>

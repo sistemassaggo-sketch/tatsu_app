@@ -15,6 +15,7 @@ type ItemCotizacionEntrada = {
   id?: number | string;
   cantidad?: number | string;
   colorId?: number | string | null;
+  apliqueId?: number | string | null;
 };
 
 export async function POST(request: Request) {
@@ -80,6 +81,7 @@ export async function POST(request: Request) {
         const productoId = Number(item.id);
         const cantidad = Number(item.cantidad ?? 1);
         const colorId = item.colorId != null && item.colorId !== "" ? Number(item.colorId) : null;
+        const apliqueId = item.apliqueId != null && item.apliqueId !== "" ? Number(item.apliqueId) : null;
 
         if (!Number.isInteger(productoId) || productoId <= 0 || !Number.isInteger(cantidad) || cantidad <= 0) {
           throw new Error("Hay productos con datos inválidos.");
@@ -89,9 +91,16 @@ export async function POST(request: Request) {
           throw new Error("Hay productos con un color inválido.");
         }
 
+        if (apliqueId != null && (!Number.isInteger(apliqueId) || apliqueId <= 0)) {
+          throw new Error("Hay productos con un aplique inválido.");
+        }
+
         const producto = await prisma.producto.findUnique({
           where: { id: productoId },
-          include: { colores: { where: { color: { activo: true } } } },
+          include: {
+            colores: { where: { color: { activo: true } } },
+            apliques: { where: { aplique: { activo: true } } },
+          },
         });
 
         if (!producto) {
@@ -117,6 +126,15 @@ export async function POST(request: Request) {
           }
         }
 
+        // El aplique es siempre opcional; si se envía uno, debe estar asignado (y activo) para este producto.
+        if (apliqueId != null) {
+          const apliqueElegido = producto.apliques.find((pa) => pa.apliqueId === apliqueId);
+
+          if (!apliqueElegido) {
+            throw new Error(`El aplique elegido no está disponible para el producto ${producto.codigo}.`);
+          }
+        }
+
         if (!producto.disponibilidad) {
           throw new Error(`El producto ${producto.codigo} no está disponible.`);
         }
@@ -125,11 +143,15 @@ export async function POST(request: Request) {
           throw new Error(`El producto ${producto.codigo} no tiene existencias suficientes (disponibles: ${producto.existencias}).`);
         }
 
+        // El precio siempre es el precio base del producto: no hay precios alternativos por color/aplique.
+        const precioUnitario = Number(producto.precioBaseCop);
+
         return {
           productoId,
           colorId,
+          apliqueId,
           cantidad,
-          precioUnitario: Number(producto.precioBaseCop),
+          precioUnitario,
         };
       }),
     );
@@ -156,6 +178,7 @@ export async function POST(request: Request) {
           create: productosParaGuardar.map((item) => ({
             productoId: item.productoId,
             colorId: item.colorId,
+            apliqueId: item.apliqueId,
             cantidad: item.cantidad,
             precioUnitario: item.precioUnitario,
             subtotal: item.precioUnitario * item.cantidad,

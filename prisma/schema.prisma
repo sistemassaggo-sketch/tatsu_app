@@ -52,6 +52,7 @@ model Producto {
   componentesPadre  ProductoComponente[] @relation("ProductoPadre")
   componentesHijo   ProductoComponente[] @relation("ProductoComponente")
   colores           ProductoColor[]
+  apliques          ProductoAplique[]
 
   @@map("productos")
 }
@@ -79,6 +80,34 @@ model ProductoColor {
 
   @@unique([productoId, colorId])
   @@map("productos_colores")
+}
+
+// Catálogo general de apliques (independiente de cualquier producto), igual que Color.
+model Aplique {
+  id       Int              @id @default(autoincrement())
+  nombre   String           @unique @db.VarChar(80)
+  // Código hexadecimal ("#RRGGBB"), igual que Color.hex: el aplique también se representa con un color.
+  hex      String           @db.VarChar(7)
+  activo   Boolean          @default(true)
+  familias FamiliaAplique[]
+  productos ProductoAplique[]
+  items    ItemCotizacion[]
+
+  @@map("apliques")
+}
+
+// Igual que ProductoColor: solo indica qué apliques están asignados a un producto (asignación
+// producto por producto). `Aplique.familias` es solo clasificación/metadata del aplique en el
+// catálogo (para filtrar, ej. "los apliques ESPEJO"); no determina qué se ofrece al cotizar.
+model ProductoAplique {
+  id         Int      @id @default(autoincrement())
+  productoId Int      @map("producto_id")
+  apliqueId  Int      @map("aplique_id")
+  producto   Producto @relation(fields: [productoId], references: [id], onDelete: Cascade)
+  aplique    Aplique  @relation(fields: [apliqueId], references: [id])
+
+  @@unique([productoId, apliqueId])
+  @@map("productos_apliques")
 }
 
 model ProductoComponente {
@@ -138,6 +167,7 @@ model ItemCotizacion {
   cotizacionId     Int        @map("cotizacion_id")
   productoId       Int        @map("producto_id")
   colorId          Int?       @map("color_id")
+  apliqueId        Int?       @map("aplique_id")
   cantidad         Int        @default(1)
   precioUnitario   Decimal    @map("precio_unitario") @db.Decimal(15, 2)
   subtotal         Decimal    @db.Decimal(15, 2)
@@ -147,6 +177,7 @@ model ItemCotizacion {
   cotizacion       Cotizacion @relation(fields: [cotizacionId], references: [id], onDelete: Cascade)
   producto         Producto   @relation(fields: [productoId], references: [id])
   color            Color?     @relation(fields: [colorId], references: [id])
+  aplique          Aplique?   @relation(fields: [apliqueId], references: [id])
 
   @@index([cotizacionId])
   @@index([productoId])
@@ -173,4 +204,10 @@ enum EstadoCotizacion {
   APROBACION_PRECIO
   NO_APROBADO
   LEGALIZADO
+}
+
+enum FamiliaAplique {
+  ESPEJO
+  MATE
+  TRANSLUCIDA
 }

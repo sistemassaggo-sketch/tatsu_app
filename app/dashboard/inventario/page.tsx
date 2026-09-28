@@ -6,6 +6,7 @@ import { palabrasBusqueda } from "@/lib/busqueda";
 import BuscadorInventario from "./BuscadorInventario";
 import FilaProductoInventario from "./FilaProductoInventario";
 import ColoresCatalogo from "./ColoresCatalogo";
+import ApliquesCatalogo from "./ApliquesCatalogo";
 import CrearProducto from "./CrearProducto";
 
 const productosPorPagina = 10;
@@ -47,7 +48,7 @@ export default async function InventarioPage({
         }
       : undefined;
 
-  const [totalProductos, productosBase, coloresDisponibles] = await Promise.all([
+  const [totalProductos, productosBase, coloresDisponibles, apliquesDisponibles] = await Promise.all([
     prisma.producto.count({ where: filtro }),
     prisma.producto.findMany({
       where: filtro,
@@ -82,6 +83,11 @@ export default async function InventarioPage({
             color: { select: { id: true, nombre: true, hex: true } },
           },
         },
+        apliques: {
+          select: {
+            aplique: { select: { id: true, nombre: true, hex: true } },
+          },
+        },
       },
     }),
     // El catálogo de gestión trae todos los colores (también los inhabilitados), para poder
@@ -90,6 +96,12 @@ export default async function InventarioPage({
     prisma.color.findMany({
       orderBy: { nombre: "asc" },
       select: { id: true, nombre: true, hex: true, activo: true },
+    }),
+    // Igual que colores: el catálogo de gestión trae todos los apliques (también inhabilitados) con
+    // sus familias asignadas.
+    prisma.aplique.findMany({
+      orderBy: { nombre: "asc" },
+      select: { id: true, nombre: true, hex: true, activo: true, familias: true},
     }),
   ]);
 
@@ -100,7 +112,7 @@ export default async function InventarioPage({
       descripcionOriginal: producto.descripcionOriginal,
       disponibilidad: producto.disponibilidad,
       existencias: producto.existencias,
-      precioBaseCop: producto.precioBaseCop ? Number(producto.precioBaseCop) : null
+      precioBaseCop: producto.precioBaseCop ? Number(producto.precioBaseCop) : null,
     },
     componentes: producto.componentesPadre.map((pr) => ({
       id: pr.productoComponente.id,
@@ -115,6 +127,11 @@ export default async function InventarioPage({
       id: pc.color.id,
       nombre: pc.color.nombre,
       hex: pc.color.hex,
+    })),
+    apliques: producto.apliques.map((pa) => ({
+      id: pa.aplique.id,
+      nombre: pa.aplique.nombre,
+      hex: pa.aplique.hex,
     })),
   }));
 
@@ -140,8 +157,9 @@ export default async function InventarioPage({
       </div>
 
       {esAdmin ? (
-        <div style={{ marginBottom: 20 }}>
+        <div style={{ marginBottom: 20, display: "grid", gap: 20 }}>
           <ColoresCatalogo colores={coloresDisponibles} />
+          <ApliquesCatalogo apliques={apliquesDisponibles} />
         </div>
       ) : null}
 
@@ -167,7 +185,7 @@ export default async function InventarioPage({
           style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginTop: 20 }}
         >
           {paginaValida > 1 ? (
-            <Link href={`/dashboard/inventario?busqueda=${encodeURIComponent(busqueda)}&pagina=${paginaValida - 1}`} style={estiloBoton}>
+            <Link href={`/dashboard/inventario?busqueda=${encodeURIComponent(busqueda)}&pagina=${paginaValida - 1}`} scroll={false} style={estiloBoton}>
               Anterior
             </Link>
           ) : (
@@ -177,7 +195,7 @@ export default async function InventarioPage({
             Página {paginaValida} de {totalPaginas}
           </span>
           {paginaValida < totalPaginas ? (
-            <Link href={`/dashboard/inventario?busqueda=${encodeURIComponent(busqueda)}&pagina=${paginaValida + 1}`} style={estiloBoton}>
+            <Link href={`/dashboard/inventario?busqueda=${encodeURIComponent(busqueda)}&pagina=${paginaValida + 1}`} scroll={false} style={estiloBoton}>
               Siguiente
             </Link>
           ) : (

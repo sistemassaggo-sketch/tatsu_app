@@ -22,3 +22,10 @@ const formateadorFechaCodigo = new Intl.DateTimeFormat("en-CA", {
 export function fechaCodigoColombia(fecha: Date = new Date()) {
   return formateadorFechaCodigo.format(fecha).replace(/-/g, "");
 }
+
+const formateadorAnio = new Intl.DateTimeFormat("en-CA", { year: "numeric", timeZone: ZONA_HORARIA });
+
+/** Año actual en hora de Colombia (para filtros de reportes por año). */
+export function anioActualColombia(fecha: Date = new Date()) {
+  return Number(formateadorAnio.format(fecha));
+}

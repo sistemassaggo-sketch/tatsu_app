@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { actualizarProductoInventario } from "./acciones";
 import BuscadorComponente from "./BuscadorComponente";
 import BuscadorColor from "./BuscadorColor";
+import BuscadorAplique from "./BuscadorAplique";
 
 type Producto = {
   id: number;
@@ -18,11 +19,13 @@ type Producto = {
 type Componente = Producto & { cantidadRequerida: number };
 
 type ColorProducto = { id: number; nombre: string; hex: string };
+type ApliqueProducto = { id: number; nombre: string; hex: string };
 
 type ProductoConComponentes = {
   productoPadre: Producto;
   componentes: Componente[];
   colores: ColorProducto[];
+  apliques: ApliqueProducto[];
 };
 
 const estiloCampo = {
@@ -99,6 +102,7 @@ const formatearCop = (valor: number) =>
 
 let contadorFilaNueva = 0;
 let contadorFilaColorNueva = 0;
+let contadorFilaApliqueNueva = 0;
 
 export default function FilaProductoInventario({ producto }: { producto: ProductoConComponentes }) {
   const [editando, setEditando] = useState(false);
@@ -108,6 +112,8 @@ export default function FilaProductoInventario({ producto }: { producto: Product
   const [filasNuevoComponente, setFilasNuevoComponente] = useState<{ clave: number }[]>([]);
   const [coloresAEliminar, setColoresAEliminar] = useState<Set<number>>(new Set());
   const [filasNuevoColor, setFilasNuevoColor] = useState<{ clave: number }[]>([]);
+  const [apliquesAEliminar, setApliquesAEliminar] = useState<Set<number>>(new Set());
+  const [filasNuevoAplique, setFilasNuevoAplique] = useState<{ clave: number }[]>([]);
 
   // Al guardar bien, se cierra el formulario; se ajusta durante el render (no en un efecto) para no
   // provocar una vuelta extra de renderizado.
@@ -120,6 +126,8 @@ export default function FilaProductoInventario({ producto }: { producto: Product
       setFilasNuevoComponente([]);
       setColoresAEliminar(new Set());
       setFilasNuevoColor([]);
+      setApliquesAEliminar(new Set());
+      setFilasNuevoAplique([]);
     }
   }
 
@@ -139,6 +147,20 @@ export default function FilaProductoInventario({ producto }: { producto: Product
 
   function alternarEliminarColor(id: number) {
     setColoresAEliminar((actual) => {
+      const siguiente = new Set(actual);
+
+      if (siguiente.has(id)) {
+        siguiente.delete(id);
+      } else {
+        siguiente.add(id);
+      }
+
+      return siguiente;
+    });
+  }
+
+  function alternarEliminarAplique(id: number) {
+    setApliquesAEliminar((actual) => {
       const siguiente = new Set(actual);
 
       if (siguiente.has(id)) {
@@ -203,17 +225,23 @@ export default function FilaProductoInventario({ producto }: { producto: Product
             />
           </label>
 
-          <label style={{ display: "grid", gap: 5, fontWeight: 600, fontSize: 14 }}>
-            Precio (COP)
-            <input
-              name="precioBaseCop"
-              type="number"
-              min={0}
-              step="1"
-              defaultValue={producto.productoPadre.precioBaseCop ?? ""}
-              style={estiloCampo}
-            />
-          </label>
+          <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))" }}>
+            <label style={{ display: "grid", gap: 5, fontWeight: 600, fontSize: 14 }}>
+              Precio (COP)
+              <input
+                name="precioBaseCop"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                defaultValue={producto.productoPadre.precioBaseCop ?? ""}
+                onChange={(evento) => {
+                  evento.target.value = evento.target.value.replace(/[^0-9]/g, "");
+                }}
+                style={estiloCampo}
+              />
+            </label>
+
+          </div>
 
           <label style={{ display: "grid", gap: 5, fontWeight: 600, fontSize: 14 }}>
             Existencias
@@ -394,6 +422,70 @@ export default function FilaProductoInventario({ producto }: { producto: Product
             </button>
           </div>
 
+          <div style={estiloContenedorComponentes}>
+            <div style={{ fontWeight: 700, fontSize: 14 }}>Apliques disponibles</div>
+
+            {producto.apliques.length === 0 && filasNuevoAplique.length === 0 ? (
+              <p style={{ margin: 0, fontSize: 13, color: "#475569" }}>Este producto no tiene apliques configurados.</p>
+            ) : null}
+
+            {producto.apliques.map((aplique) => {
+              const marcadoParaEliminar = apliquesAEliminar.has(aplique.id);
+
+              return (
+                <div
+                  key={aplique.id}
+                  style={{
+                    ...estiloFilaComponente,
+                    opacity: marcadoParaEliminar ? 0.5 : 1,
+                  }}
+                >
+                  <input type="hidden" name={`eliminar-aplique-${aplique.id}`} value={String(marcadoParaEliminar)} />
+
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, flex: "1 1 180px" }}>
+                    <span
+                      aria-hidden="true"
+                      style={{ width: 20, height: 20, borderRadius: "50%", background: aplique.hex, border: "1px solid #cbd5e1", flexShrink: 0 }}
+                    />
+                    <p style={{ margin: 0, fontWeight: 700, color: "#176B87", textDecoration: marcadoParaEliminar ? "line-through" : "none" }}>
+                      {aplique.nombre}
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => alternarEliminarAplique(aplique.id)}
+                    style={marcadoParaEliminar ? estiloBotonDeshacer : estiloBotonEliminarComponente}
+                  >
+                    {marcadoParaEliminar ? "Deshacer" : "Eliminar"}
+                  </button>
+                </div>
+              );
+            })}
+
+            {filasNuevoAplique.map((fila, indice) => (
+              <div key={fila.clave} style={estiloFilaComponenteNuevo}>
+                <BuscadorAplique nombreCampoApliqueId={`nuevoApliqueId-${indice}`} />
+
+                <button
+                  type="button"
+                  onClick={() => setFilasNuevoAplique((actual) => actual.filter((elemento) => elemento.clave !== fila.clave))}
+                  style={estiloBotonEliminarComponente}
+                >
+                  Quitar
+                </button>
+              </div>
+            ))}
+
+            <button
+              type="button"
+              onClick={() => setFilasNuevoAplique((actual) => [...actual, { clave: contadorFilaApliqueNueva++ }])}
+              style={estiloBotonAgregarComponente}
+            >
+              + Agregar aplique
+            </button>
+          </div>
+
           {estado?.mensaje ? (
             <p style={{ margin: 0, color: estado.ok ? "#087443" : "#b42318" }}>{estado.mensaje}</p>
           ) : null}
@@ -458,6 +550,20 @@ export default function FilaProductoInventario({ producto }: { producto: Product
                     style={{ width: 16, height: 16, borderRadius: "50%", background: color.hex, border: "1px solid #cbd5e1", display: "inline-block" }}
                   />
                   {color.nombre}
+                </span>
+              ))}
+            </div>
+          ) : null}
+          {producto.apliques.length > 0 ? (
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+              {producto.apliques.map((aplique) => (
+                <span key={aplique.id} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, color: "#475569" }}>
+                  <span
+                    aria-hidden="true"
+                    title={aplique.nombre}
+                    style={{ width: 16, height: 16, borderRadius: "50%", background: aplique.hex, border: "1px solid #cbd5e1", display: "inline-block" }}
+                  />
+                  {aplique.nombre}
                 </span>
               ))}
             </div>

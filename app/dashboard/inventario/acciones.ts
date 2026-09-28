@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { auth } from "@/app/auth";
 import prisma from "@/lib/prisma";
-import { Prisma } from "@/generated/prisma/client";
+import { FamiliaAplique, Prisma } from "@/generated/prisma/client";
 import { registrarEventoAuditoria } from "@/lib/auditoria";
 
 // Ante una carrera (dos pestañas creando/editando el mismo nombre a la vez), el chequeo previo por
@@ -14,6 +14,54 @@ function esErrorDeNombreDuplicado(error: unknown) {
 }
 
 export type EstadoAccionInventario = { ok: boolean; mensaje: string } | null;
+
+// El precio del producto es opcional: si viene vacío queda en null, si viene debe ser un número >= 0.
+function parsearPrecioOpcional(
+  formData: FormData,
+  campo: string,
+  etiqueta: string,
+): { valor: number | null; error?: undefined } | { valor?: undefined; error: string } {
+  const texto = String(formData.get(campo) ?? "").trim();
+
+  if (!texto) {
+    return { valor: null };
+  }
+
+  const valor = Number(texto);
+
+  if (!Number.isFinite(valor) || valor < 0) {
+    return { error: `${etiqueta} debe ser un número válido mayor o igual a 0.` };
+  }
+
+  return { valor };
+}
+
+// El cilindraje es opcional: si viene vacío queda en null, si viene debe ser un entero >= 0.
+function parsearEnteroOpcional(
+  formData: FormData,
+  campo: string,
+  etiqueta: string,
+): { valor: number | null; error?: undefined } | { valor?: undefined; error: string } {
+  const texto = String(formData.get(campo) ?? "").trim();
+
+  if (!texto) {
+    return { valor: null };
+  }
+
+  const valor = Number(texto);
+
+  if (!Number.isInteger(valor) || valor < 0) {
+    return { error: `${etiqueta} debe ser un número entero mayor o igual a 0.` };
+  }
+
+  return { valor };
+}
+
+// Texto opcional: cadena vacía se guarda como null en vez de "".
+function parsearTextoOpcional(formData: FormData, campo: string) {
+  const texto = String(formData.get(campo) ?? "").trim();
+  return texto || null;
+}
 
 // Admin y almacén administran productos (precio, existencias, componentes, asignar colores ya
 // existentes); el catálogo general de colores (crear/editar/inhabilitar) es exclusivo de admin.
@@ -31,7 +79,6 @@ export async function actualizarProductoInventario(
 
   const productoId = Number(formData.get("productoId"));
   const descripcionOriginal = String(formData.get("descripcionOriginal") ?? "").trim();
-  const precioTexto = String(formData.get("precioBaseCop") ?? "").trim();
   const existenciasTexto = String(formData.get("existencias") ?? "").trim();
 
   if (!Number.isInteger(productoId)) {
@@ -42,10 +89,10 @@ export async function actualizarProductoInventario(
     return { ok: false, mensaje: "La descripción no puede estar vacía." };
   }
 
-  const precioBaseCop = precioTexto ? Number(precioTexto) : null;
+  const precioBase = parsearPrecioOpcional(formData, "precioBaseCop", "El precio");
 
-  if (precioTexto && (!Number.isFinite(precioBaseCop) || precioBaseCop! < 0)) {
-    return { ok: false, mensaje: "El precio debe ser un número válido mayor o igual a 0." };
+  if (precioBase.error) {
+    return { ok: false, mensaje: precioBase.error };
   }
 
   const existencias = Number(existenciasTexto);
@@ -184,12 +231,56 @@ export async function actualizarProductoInventario(
     coloresNuevosResueltos.push(color.id);
   }
 
+  // --- Apliques: mismo patrón que colores, asignación directa producto por producto vía
+  // ProductoAplique (Aplique.familias es solo clasificación del catálogo, no gobierna esto).
+  const apliquesActuales = await prisma.productoAplique.findMany({
+    where: { productoId },
+    select: { apliqueId: true },
+  });
+
+  const apliquesAEliminar = new Set<number>();
+  const nuevosApliquesIds = new Set<number>();
+
+  for (const [clave, valor] of formData.entries()) {
+    if (clave.startsWith("eliminar-aplique-")) {
+      const id = Number(clave.replace("eliminar-aplique-", ""));
+
+      if (Number.isInteger(id) && String(valor) === "true") {
+        apliquesAEliminar.add(id);
+      }
+    } else if (clave.startsWith("nuevoApliqueId-")) {
+      const apliqueId = Number(valor);
+
+      if (Number.isInteger(apliqueId) && apliqueId > 0) {
+        nuevosApliquesIds.add(apliqueId);
+      }
+    }
+  }
+
+  const apliquesNuevosResueltos: number[] = [];
+
+  for (const apliqueId of nuevosApliquesIds) {
+    const aplique = await prisma.aplique.findUnique({ where: { id: apliqueId }, select: { id: true, activo: true, nombre: true } });
+
+    if (!aplique || !aplique.activo) {
+      return { ok: false, mensaje: "Uno de los apliques elegidos ya no está disponible." };
+    }
+
+    const yaTieneAplique = apliquesActuales.some((pa) => pa.apliqueId === aplique.id);
+
+    if (yaTieneAplique) {
+      return { ok: false, mensaje: `El producto ya tiene configurado el aplique "${aplique.nombre}".` };
+    }
+
+    apliquesNuevosResueltos.push(aplique.id);
+  }
+
   await prisma.$transaction(async (tx) => {
     await tx.producto.update({
       where: { id: productoId },
       data: {
         descripcionOriginal,
-        precioBaseCop,
+        precioBaseCop: precioBase.valor ?? null,
         existencias,
         // Si las existencias quedan en más de 0, el producto vuelve a estar disponible automáticamente.
         ...(existencias > 0 ? { disponibilidad: true } : {}),
@@ -229,6 +320,16 @@ export async function actualizarProductoInventario(
     for (const colorId of coloresNuevosResueltos) {
       await tx.productoColor.create({ data: { productoId, colorId } });
     }
+
+    for (const { apliqueId } of apliquesActuales) {
+      if (apliquesAEliminar.has(apliqueId)) {
+        await tx.productoAplique.delete({ where: { productoId_apliqueId: { productoId, apliqueId } } });
+      }
+    }
+
+    for (const apliqueId of apliquesNuevosResueltos) {
+      await tx.productoAplique.create({ data: { productoId, apliqueId } });
+    }
   });
 
   const nombreUsuario = sesion.user.username ?? sesion.user.name ?? "admin";
@@ -237,7 +338,7 @@ export async function actualizarProductoInventario(
     usuario: nombreUsuario,
     usuarioId: Number(sesion.user?.id ?? 0) || null,
     accion: "MODIFICAR_PRODUCTO",
-    descripcion: `Se actualizó el producto ${producto.codigo} (descripción, precio, existencias, componentes y/o colores) desde inventario.`,
+    descripcion: `Se actualizó el producto ${producto.codigo} (descripción, precio, existencias, componentes, colores y/o apliques) desde inventario.`,
     recurso: "productos",
     recursoId: productoId,
   });
@@ -261,7 +362,6 @@ export async function crearProducto(
 
   const codigo = String(formData.get("codigo") ?? "").trim();
   const descripcionOriginal = String(formData.get("descripcionOriginal") ?? "").trim();
-  const precioTexto = String(formData.get("precioBaseCop") ?? "").trim();
   const existenciasTexto = String(formData.get("existencias") ?? "0").trim();
 
   if (!codigo) {
@@ -272,10 +372,16 @@ export async function crearProducto(
     return { ok: false, mensaje: "La descripción no puede estar vacía." };
   }
 
-  const precioBaseCop = precioTexto ? Number(precioTexto) : null;
+  const precioBase = parsearPrecioOpcional(formData, "precioBaseCop", "El precio");
 
-  if (precioTexto && (!Number.isFinite(precioBaseCop) || precioBaseCop! < 0)) {
-    return { ok: false, mensaje: "El precio debe ser un número válido mayor o igual a 0." };
+  if (precioBase.error) {
+    return { ok: false, mensaje: precioBase.error };
+  }
+
+  const cilindraje = parsearEnteroOpcional(formData, "cilindraje", "El cilindraje");
+
+  if (cilindraje.error) {
+    return { ok: false, mensaje: cilindraje.error };
   }
 
   const existencias = Number(existenciasTexto || "0");
@@ -288,9 +394,16 @@ export async function crearProducto(
     data: {
       codigo,
       descripcionOriginal,
-      precioBaseCop,
+      precioBaseCop: precioBase.valor ?? null,
       existencias,
       disponibilidad: existencias > 0,
+      casaFamilia: parsearTextoOpcional(formData, "casaFamilia"),
+      linea: parsearTextoOpcional(formData, "linea"),
+      cilindraje: cilindraje.valor ?? null,
+      version: parsearTextoOpcional(formData, "version"),
+      tipoAcabado: parsearTextoOpcional(formData, "tipoAcabado"),
+      detalles: parsearTextoOpcional(formData, "detalles"),
+      lineaOriginal: parsearTextoOpcional(formData, "lineaOriginal"),
     },
   });
 
@@ -478,4 +591,212 @@ export async function alternarColorActivo(
   revalidatePath("/dashboard/inventario");
 
   return { ok: true, mensaje: activo ? "Color habilitado." : "Color inhabilitado." };
+}
+
+// --- Apliques: catálogo general (exclusivo de admin), igual que colores. Se asignan a un producto
+// directamente vía ProductoAplique (ver actualizarProductoInventario); el campo `familias` es solo
+// clasificación del aplique dentro del catálogo, no determina qué se ofrece al cotizar.
+
+// Crea un aplique en el catálogo general (sin familias todavía: se agregan después).
+export async function crearApliqueGeneral(
+  _estadoPrevio: EstadoAccionInventario,
+  formData: FormData,
+): Promise<EstadoAccionInventario> {
+  const sesion = await auth();
+
+  if (sesion?.user?.role !== "admin") {
+    return { ok: false, mensaje: "No tienes permisos para crear apliques." };
+  }
+
+  const nombre = String(formData.get("nombre") ?? "").trim();
+  const hex = String(formData.get("hex") ?? "").trim();
+
+  if (!nombre) {
+    return { ok: false, mensaje: "El nombre del aplique no puede estar vacío." };
+  }
+
+  if (!HEX_VALIDO.test(hex)) {
+    return { ok: false, mensaje: "Elige un color válido para el aplique." };
+  }
+
+  const existente = await prisma.aplique.findFirst({
+    where: { nombre: { equals: nombre, mode: "insensitive" } },
+  });
+
+  if (existente) {
+    return { ok: false, mensaje: `Ya existe un aplique llamado "${existente.nombre}".` };
+  }
+
+  try {
+    await prisma.aplique.create({ data: { nombre, hex } });
+  } catch (error) {
+    if (esErrorDeNombreDuplicado(error)) {
+      return { ok: false, mensaje: `Ya existe un aplique llamado "${nombre}".` };
+    }
+
+    throw error;
+  }
+
+  const nombreUsuario = sesion.user.username ?? sesion.user.name ?? "admin";
+
+  await registrarEventoAuditoria({
+    usuario: nombreUsuario,
+    usuarioId: Number(sesion.user?.id ?? 0) || null,
+    accion: "MODIFICAR_PRODUCTO",
+    descripcion: `Se creó el aplique "${nombre}" en el catálogo general desde inventario.`,
+    recurso: "apliques",
+    recursoId: null,
+  });
+
+  revalidatePath("/dashboard/inventario");
+
+  return { ok: true, mensaje: "Aplique creado correctamente." };
+}
+
+// Edita el nombre de un aplique del catálogo general.
+export async function actualizarApliqueGeneral(
+  _estadoPrevio: EstadoAccionInventario,
+  formData: FormData,
+): Promise<EstadoAccionInventario> {
+  const sesion = await auth();
+
+  if (sesion?.user?.role !== "admin") {
+    return { ok: false, mensaje: "No tienes permisos para editar apliques." };
+  }
+
+  const apliqueId = Number(formData.get("apliqueId"));
+  const nombre = String(formData.get("nombre") ?? "").trim();
+  const hex = String(formData.get("hex") ?? "").trim();
+
+  if (!Number.isInteger(apliqueId)) {
+    return { ok: false, mensaje: "Aplique inválido." };
+  }
+
+  if (!nombre) {
+    return { ok: false, mensaje: "El nombre del aplique no puede estar vacío." };
+  }
+
+  if (!HEX_VALIDO.test(hex)) {
+    return { ok: false, mensaje: "Elige un color válido para el aplique." };
+  }
+
+  const aplique = await prisma.aplique.findUnique({ where: { id: apliqueId } });
+
+  if (!aplique) {
+    return { ok: false, mensaje: "El aplique no existe." };
+  }
+
+  const otroConElMismoNombre = await prisma.aplique.findFirst({
+    where: { nombre: { equals: nombre, mode: "insensitive" }, id: { not: apliqueId } },
+  });
+
+  if (otroConElMismoNombre) {
+    return { ok: false, mensaje: `Ya existe un aplique llamado "${otroConElMismoNombre.nombre}".` };
+  }
+
+  try {
+    await prisma.aplique.update({ where: { id: apliqueId }, data: { nombre, hex } });
+  } catch (error) {
+    if (esErrorDeNombreDuplicado(error)) {
+      return { ok: false, mensaje: `Ya existe un aplique llamado "${nombre}".` };
+    }
+
+    throw error;
+  }
+
+  const nombreUsuario = sesion.user.username ?? sesion.user.name ?? "admin";
+
+  await registrarEventoAuditoria({
+    usuario: nombreUsuario,
+    usuarioId: Number(sesion.user?.id ?? 0) || null,
+    accion: "MODIFICAR_PRODUCTO",
+    descripcion: `Se editó el aplique "${aplique.nombre}" (ahora "${nombre}") en el catálogo general desde inventario.`,
+    recurso: "apliques",
+    recursoId: apliqueId,
+  });
+
+  revalidatePath("/dashboard/inventario");
+
+  return { ok: true, mensaje: "Aplique actualizado correctamente." };
+}
+
+// Habilita o inhabilita un aplique del catálogo general (nunca se borra, igual que Color).
+export async function alternarApliqueActivo(
+  _estadoPrevio: EstadoAccionInventario,
+  formData: FormData,
+): Promise<EstadoAccionInventario> {
+  const sesion = await auth();
+
+  if (sesion?.user?.role !== "admin") {
+    return { ok: false, mensaje: "No tienes permisos para inhabilitar apliques." };
+  }
+
+  const apliqueId = Number(formData.get("apliqueId"));
+  const activo = String(formData.get("activo") ?? "") === "true";
+
+  if (!Number.isInteger(apliqueId)) {
+    return { ok: false, mensaje: "Aplique inválido." };
+  }
+
+  const aplique = await prisma.aplique.findUnique({ where: { id: apliqueId } });
+
+  if (!aplique) {
+    return { ok: false, mensaje: "El aplique no existe." };
+  }
+
+  await prisma.aplique.update({ where: { id: apliqueId }, data: { activo } });
+
+  const nombreUsuario = sesion.user.username ?? sesion.user.name ?? "admin";
+
+  await registrarEventoAuditoria({
+    usuario: nombreUsuario,
+    usuarioId: Number(sesion.user?.id ?? 0) || null,
+    accion: "MODIFICAR_PRODUCTO",
+    descripcion: `Se ${activo ? "habilitó" : "inhabilitó"} el aplique "${aplique.nombre}" en el catálogo general desde inventario.`,
+    recurso: "apliques",
+    recursoId: apliqueId,
+  });
+
+  revalidatePath("/dashboard/inventario");
+
+  return { ok: true, mensaje: activo ? "Aplique habilitado." : "Aplique inhabilitado." };
+}
+
+const FAMILIAS_VALIDAS = new Set<string>(Object.values(FamiliaAplique));
+
+// Reemplaza el conjunto de familias (clasificación) de un aplique, tomado de los checkboxes
+// "familia-<APLIQUE_ID>" marcados en el form. Es solo metadata de catálogo; no afecta qué apliques
+// puede ofrecer un producto al cotizar (eso lo determina ProductoAplique).
+export async function actualizarFamiliasAplique(
+  _estadoPrevio: EstadoAccionInventario,
+  formData: FormData,
+): Promise<EstadoAccionInventario> {
+  const sesion = await auth();
+
+  if (sesion?.user?.role !== "admin") {
+    return { ok: false, mensaje: "No tienes permisos para editar apliques." };
+  }
+
+  const apliqueId = Number(formData.get("apliqueId"));
+
+  if (!Number.isInteger(apliqueId)) {
+    return { ok: false, mensaje: "Aplique inválido." };
+  }
+
+  const aplique = await prisma.aplique.findUnique({ where: { id: apliqueId } });
+
+  if (!aplique) {
+    return { ok: false, mensaje: "El aplique no existe." };
+  }
+
+  const familias = formData
+    .getAll("familia")
+    .map((valor) => String(valor))
+    .filter((valor) => FAMILIAS_VALIDAS.has(valor)) as FamiliaAplique[];
+
+  await prisma.aplique.update({ where: { id: apliqueId }, data: { familias } });
+
+  revalidatePath("/dashboard/inventario");
+
+  return { ok: true, mensaje: "Familias del aplique actualizadas." };
 }

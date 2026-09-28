@@ -14,10 +14,34 @@ import {
   type RootState,
 } from "@/store/cotizacion";
 
-// Identifica una línea del carrito: dos líneas del mismo producto en colores distintos son líneas
-// independientes, así que la clave debe incluir el color.
-function claveItem(item: { id: number; colorId?: number }) {
-  return `${item.id}-${item.colorId ?? "sin-color"}`;
+// Identifica una línea del carrito: dos líneas del mismo producto en colores/apliques distintos son
+// líneas independientes, así que la clave debe incluir ambos.
+function claveItem(item: { id: number; colorId?: number; apliqueId?: number }) {
+  return `${item.id}-${item.colorId ?? "sin-color"}-${item.apliqueId ?? "sin-aplique"}`;
+}
+
+// Agrupa las líneas del carrito por producto (mismo código): un producto pedido en varios
+// colores/apliques se muestra como una sola tarjeta con una sub-línea por combinación, en vez de
+// una tarjeta completa repetida por cada color.
+function agruparPorProducto<T extends { id: number; codigo: string; descripcionGeneral: string; imagen: string }>(
+  items: T[],
+) {
+  const grupos: { id: number; codigo: string; descripcionGeneral: string; imagen: string; lineas: T[] }[] = [];
+  const indicePorId = new Map<number, number>();
+
+  for (const item of items) {
+    const indice = indicePorId.get(item.id);
+
+    if (indice !== undefined) {
+      grupos[indice].lineas.push(item);
+      continue;
+    }
+
+    indicePorId.set(item.id, grupos.length);
+    grupos.push({ id: item.id, codigo: item.codigo, descripcionGeneral: item.descripcionGeneral, imagen: item.imagen, lineas: [item] });
+  }
+
+  return grupos;
 }
 
 export default function CarritoCotizacion({ esRolCliente = false }: { esRolCliente?: boolean }) {
@@ -26,12 +50,14 @@ export default function CarritoCotizacion({ esRolCliente = false }: { esRolClien
     (state: RootState) => state.cotizacion,
   );
   const [cantidadesEditadas, setCantidadesEditadas] = useState<Record<string, string>>({});
+  const [itemsPrevios, setItemsPrevios] = useState(items);
 
-  useEffect(() => {
-    setCantidadesEditadas(
-      Object.fromEntries(items.map((item) => [claveItem(item), String(item.cantidad)])),
-    );
-  }, [items]);
+  // Si `items` cambia por fuera (otra línea se agrega/quita/actualiza en Redux), se resincroniza el
+  // buffer local durante el render en vez de con un efecto.
+  if (items !== itemsPrevios) {
+    setItemsPrevios(items);
+    setCantidadesEditadas(Object.fromEntries(items.map((item) => [claveItem(item), String(item.cantidad)])));
+  }
 
   // El rol "cliente" nunca cotiza como minorista ni con descuento; si quedaron en true por un
   // estado persistido anterior (p. ej. cambio de rol del usuario), se corrigen al montar el carrito.
@@ -67,69 +93,88 @@ export default function CarritoCotizacion({ esRolCliente = false }: { esRolClien
       </div>
 
       <div style={{ display: "grid", gap: 18 }}>
-        {items.map((item) => (
-          <article key={claveItem(item)} style={estiloProductoFila}>
+        {agruparPorProducto(items).map((grupo) => (
+          <article key={grupo.id} style={estiloTarjetaProducto}>
             <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-              <div style={{ width: 62, height: 62, borderRadius: 12, background: "#eef6fb", overflow: "hidden", display: "grid", placeItems: "center", position: "relative" }}>
-                {item.imagen ? <Image src={item.imagen} alt={item.codigo} fill sizes="62px" style={{ objectFit: "cover" }} /> : <span>📦</span>}
+              <div style={{ width: 62, height: 62, borderRadius: 12, background: "#eef6fb", overflow: "hidden", display: "grid", placeItems: "center", position: "relative", flexShrink: 0 }}>
+                {grupo.imagen ? <Image src={grupo.imagen} alt={grupo.codigo} fill sizes="62px" style={{ objectFit: "cover" }} /> : <span>📦</span>}
               </div>
               <div>
-                <p style={{ fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}>
-                  {item.codigo}
-                  {item.colorNombre ? (
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontWeight: 600, fontSize: 13, color: "#475569" }}>
-                      <span
-                        aria-hidden="true"
-                        title={item.colorNombre}
-                        style={{ width: 14, height: 14, borderRadius: "50%", background: item.colorHex ?? "#cbd5e1", border: "1px solid #cbd5e1", display: "inline-block" }}
-                      />
-                      {item.colorNombre}
-                    </span>
-                  ) : null}
-                </p>
-                <p style={{ color: "#475569" }}>{item.descripcionGeneral}</p>
+                <p style={{ fontWeight: 800 }}>{grupo.codigo}</p>
+                <p style={{ color: "#475569" }}>{grupo.descripcionGeneral}</p>
               </div>
             </div>
 
-            <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-              <label style={{ display: "grid", gap: 6, fontWeight: 700 }}>
-                Cantidad
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  value={cantidadesEditadas[claveItem(item)] ?? String(item.cantidad)}
-                  onChange={(evento) => {
-                    const valorTexto = evento.target.value;
+            <div style={{ display: "grid", gap: 10 }}>
+              {grupo.lineas.map((item) => (
+                <div key={claveItem(item)} style={estiloSubLinea}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", minWidth: 0 }}>
+                    {item.colorNombre ? (
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontWeight: 600, fontSize: 13, color: "#475569" }}>
+                        <span
+                          aria-hidden="true"
+                          title={item.colorNombre}
+                          style={{ width: 14, height: 14, borderRadius: "50%", background: item.colorHex ?? "#cbd5e1", border: "1px solid #cbd5e1", display: "inline-block" }}
+                        />
+                        {item.colorNombre}
+                      </span>
+                    ) : null}
+                    {item.apliqueNombre ? (
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontWeight: 600, fontSize: 13, color: "#475569" }}>
+                        <span
+                          aria-hidden="true"
+                          title={item.apliqueNombre}
+                          style={{ width: 14, height: 14, borderRadius: "50%", background: item.apliqueHex ?? "#cbd5e1", border: "1px solid #cbd5e1", display: "inline-block" }}
+                        />
+                        Aplique: {item.apliqueNombre}
+                      </span>
+                    ) : null}
+                    {!item.colorNombre && !item.apliqueNombre ? (
+                      <span style={{ fontSize: 13, color: "#94a3b8" }}>Estándar</span>
+                    ) : null}
+                  </div>
 
-                    if (valorTexto === "") {
-                      setCantidadesEditadas((estado) => ({ ...estado, [claveItem(item)]: "" }));
-                      return;
-                    }
+                  <label style={{ display: "grid", gap: 4, fontWeight: 700, fontSize: 13 }}>
+                    Cantidad
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      value={cantidadesEditadas[claveItem(item)] ?? String(item.cantidad)}
+                      onChange={(evento) => {
+                        const valorTexto = evento.target.value;
 
-                    if (!/^[1-9]\d*$/.test(valorTexto)) {
-                      return;
-                    }
+                        if (valorTexto === "") {
+                          setCantidadesEditadas((estado) => ({ ...estado, [claveItem(item)]: "" }));
+                          return;
+                        }
 
-                    const valor = Number(valorTexto);
-                    setCantidadesEditadas((estado) => ({ ...estado, [claveItem(item)]: String(valor) }));
-                    dispatch(actualizarCantidad({ id: item.id, colorId: item.colorId, cantidad: valor }));
-                  }}
-                  style={{ width: 80, ...estiloCampo }}
-                />
-              </label>
+                        if (!/^[1-9]\d*$/.test(valorTexto)) {
+                          return;
+                        }
 
-              <div style={{ textAlign: "right" }}>
-                <p style={{ color: "#475569", fontSize: 13 }}>Precio unitario: {formatearCop(item.precio)}</p>
-                <p style={{ fontWeight: 800, color: "#176B87" }}>Total: {formatearCop(item.precio * item.cantidad)}</p>
-                <button
-                  type="button"
-                  onClick={() => dispatch(eliminarProducto({ id: item.id, colorId: item.colorId }))}
-                  style={estiloBotonEliminar}
-                >
-                  Eliminar
-                </button>
-              </div>
+                        const valor = Number(valorTexto);
+                        setCantidadesEditadas((estado) => ({ ...estado, [claveItem(item)]: String(valor) }));
+                        dispatch(actualizarCantidad({ id: item.id, colorId: item.colorId, apliqueId: item.apliqueId, cantidad: valor }));
+                      }}
+                      style={{ width: 70, ...estiloCampo }}
+                    />
+                  </label>
+
+                  <div style={{ textAlign: "right" }}>
+                    <p style={{ color: "#475569", fontSize: 12 }}>{formatearCop(item.precio)} c/u</p>
+                    <p style={{ fontWeight: 800, color: "#176B87" }}>{formatearCop(item.precio * item.cantidad)}</p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => dispatch(eliminarProducto({ id: item.id, colorId: item.colorId, apliqueId: item.apliqueId }))}
+                    style={estiloBotonEliminar}
+                  >
+                    Eliminar
+                  </button>
+                </div>
+              ))}
             </div>
           </article>
         ))}
@@ -283,13 +328,21 @@ const estiloBotonSecundario: CSSProperties = {
   cursor: "pointer",
 };
 
-const estiloProductoFila: CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  gap: 16,
+const estiloTarjetaProducto: CSSProperties = {
+  display: "grid",
+  gap: 14,
   border: "1px solid #e2e8f0",
   borderRadius: 12,
   padding: 16,
-  flexWrap: "wrap",
+};
+
+// Grid con columnas fijas (no flex) para que la cantidad y el precio unitario queden siempre en la
+// misma posición horizontal entre filas, sin importar cuánto varíe el largo de los demás textos.
+const estiloSubLinea: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "minmax(130px, 1fr) 100px 150px 90px",
+  alignItems: "center",
+  gap: 12,
+  padding: "10px 0",
+  borderTop: "1px solid #f1f5f9",
 };

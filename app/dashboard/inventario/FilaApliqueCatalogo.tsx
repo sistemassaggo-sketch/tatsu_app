@@ -1,9 +1,11 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { actualizarColorGeneral, alternarColorActivo } from "./acciones";
+import { actualizarApliqueGeneral, alternarApliqueActivo, actualizarFamiliasAplique } from "./acciones";
 
-type Color = { id: number; nombre: string; hex: string; activo: boolean };
+type Aplique = { id: number; nombre: string; hex: string; activo: boolean; familias: string[] };
+
+const FAMILIAS_APLIQUE = ["ESPEJO", "MATE", "TRANSLUCIDA"] as const;
 
 const estiloCampo = {
   boxSizing: "border-box" as const,
@@ -13,9 +15,6 @@ const estiloCampo = {
   font: "inherit",
 };
 
-// Separado en borderWidth/borderStyle/borderColor (en vez del shorthand "border") porque el botón
-// "Inhabilitar" solo sobreescribe borderColor condicionalmente; mezclar shorthand y longhand para el
-// mismo valor hace que React no pueda limpiar la propiedad correctamente al alternar entre estilos.
 const estiloBoton = {
   borderWidth: 1,
   borderStyle: "solid",
@@ -29,14 +28,36 @@ const estiloBoton = {
   cursor: "pointer",
 };
 
-// Fila colapsada por defecto (igual que los apliques): con muchos colores en el catálogo, mostrar
-// siempre el swatch + nombre + dos botones por color ocupaba demasiada pantalla.
-export default function FilaColorCatalogo({ color }: { color: Color }) {
+function FormularioFamilias({ aplique }: { aplique: Aplique }) {
+  const [estado, accion, enviando] = useActionState(actualizarFamiliasAplique, null);
+
+  return (
+    <form action={accion} style={{ display: "grid", gap: 6 }}>
+      <input type="hidden" name="apliqueId" value={aplique.id} />
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+        {FAMILIAS_APLIQUE.map((familia) => (
+          <label key={familia} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "#334155" }}>
+            <input type="checkbox" name="familia" value={familia} defaultChecked={aplique.familias.includes(familia)} />
+            {familia}
+          </label>
+        ))}
+      </div>
+      <div>
+        <button type="submit" disabled={enviando} style={estiloBoton}>
+          {enviando ? "Guardando..." : "Guardar familias"}
+        </button>
+      </div>
+      {estado?.mensaje ? <p style={{ margin: 0, fontSize: 12, color: estado.ok ? "#087443" : "#b42318" }}>{estado.mensaje}</p> : null}
+    </form>
+  );
+}
+
+export default function FilaApliqueCatalogo({ aplique }: { aplique: Aplique }) {
   const [editando, setEditando] = useState(false);
   const [desplegado, setDesplegado] = useState(false);
-  const [estado, accion, enviando] = useActionState(actualizarColorGeneral, null);
+  const [estado, accion, enviando] = useActionState(actualizarApliqueGeneral, null);
   const [estadoAtendido, setEstadoAtendido] = useState(estado);
-  const [, accionAlternar, alternando] = useActionState(alternarColorActivo, null);
+  const [, accionAlternar, alternando] = useActionState(alternarApliqueActivo, null);
 
   if (estado !== estadoAtendido) {
     setEstadoAtendido(estado);
@@ -52,7 +73,7 @@ export default function FilaColorCatalogo({ color }: { color: Color }) {
         border: "1px solid #e2e8f0",
         borderRadius: 10,
         background: "#fff",
-        opacity: color.activo ? 1 : 0.5,
+        opacity: aplique.activo ? 1 : 0.5,
         minWidth: 0,
       }}
     >
@@ -74,10 +95,10 @@ export default function FilaColorCatalogo({ color }: { color: Color }) {
       >
         <span
           aria-hidden="true"
-          style={{ width: 16, height: 16, borderRadius: "50%", background: color.hex, border: "1px solid #cbd5e1", flexShrink: 0 }}
+          style={{ width: 16, height: 16, borderRadius: "50%", background: aplique.hex, border: "1px solid #cbd5e1", flexShrink: 0 }}
         />
-        <span style={{ fontSize: 13, fontWeight: 600, textDecoration: color.activo ? "none" : "line-through", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {color.nombre}
+        <span style={{ fontSize: 13, fontWeight: 600, textDecoration: aplique.activo ? "none" : "line-through", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {aplique.nombre}
         </span>
         <span aria-hidden="true" style={{ marginLeft: "auto", color: "#94a3b8", transform: desplegado ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}>
           ▾
@@ -88,10 +109,10 @@ export default function FilaColorCatalogo({ color }: { color: Color }) {
         <div style={{ borderTop: "1px solid #f1f5f9", padding: 10, display: "grid", gap: 8 }}>
           {editando ? (
             <form action={accion} style={{ display: "grid", gap: 8 }}>
-              <input type="hidden" name="colorId" value={color.id} />
+              <input type="hidden" name="apliqueId" value={aplique.id} />
               <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                <input name="hex" type="color" defaultValue={color.hex} style={{ width: 40, height: 32, padding: 2, flexShrink: 0 }} />
-                <input name="nombre" type="text" defaultValue={color.nombre} required style={{ ...estiloCampo, flex: "1 1 120px" }} />
+                <input name="hex" type="color" defaultValue={aplique.hex} style={{ width: 40, height: 32, padding: 2, flexShrink: 0 }} />
+                <input name="nombre" type="text" defaultValue={aplique.nombre} required style={{ ...estiloCampo, flex: "1 1 120px" }} />
               </div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 <button type="submit" disabled={enviando} style={{ ...estiloBoton, background: "#EA5C25", color: "#fff", borderStyle: "none" }}>
@@ -111,23 +132,28 @@ export default function FilaColorCatalogo({ color }: { color: Color }) {
               <form
                 action={accionAlternar}
                 onSubmit={(evento) => {
-                  if (color.activo && !window.confirm(`¿Inhabilitar el color "${color.nombre}"? Dejará de poder elegirse en cotizaciones.`)) {
+                  if (aplique.activo && !window.confirm(`¿Inhabilitar el aplique "${aplique.nombre}"? Dejará de poder elegirse en cotizaciones.`)) {
                     evento.preventDefault();
                   }
                 }}
               >
-                <input type="hidden" name="colorId" value={color.id} />
-                <input type="hidden" name="activo" value={String(!color.activo)} />
+                <input type="hidden" name="apliqueId" value={aplique.id} />
+                <input type="hidden" name="activo" value={String(!aplique.activo)} />
                 <button
                   type="submit"
                   disabled={alternando}
-                  style={color.activo ? { ...estiloBoton, borderColor: "#b42318", color: "#b42318" } : estiloBoton}
+                  style={aplique.activo ? { ...estiloBoton, borderColor: "#b42318", color: "#b42318" } : estiloBoton}
                 >
-                  {color.activo ? "Inhabilitar" : "Habilitar"}
+                  {aplique.activo ? "Inhabilitar" : "Habilitar"}
                 </button>
               </form>
             </div>
           )}
+
+          <div style={{ display: "grid", gap: 6 }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: "#475569" }}>Familias</span>
+            <FormularioFamilias aplique={aplique} />
+          </div>
         </div>
       ) : null}
     </div>

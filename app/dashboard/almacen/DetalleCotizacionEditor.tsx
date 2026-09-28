@@ -9,6 +9,7 @@ type ItemCotizacionEditor = {
   descripcionOriginal: string;
   colorNombre?: string | null;
   colorHex?: string | null;
+  apliqueNombre?: string | null;
   precioUnitario: number;
   cantidad: number;
   eliminado?: boolean;
@@ -38,6 +39,7 @@ export default function DetalleCotizacionEditor({
     })),
   );
   const [mensajeError, setMensajeError] = useState("");
+  const [cantidadesEditadas, setCantidadesEditadas] = useState<Record<number, string>>({});
 
   const subtotal = useMemo(
     () =>
@@ -113,6 +115,9 @@ export default function DetalleCotizacionEditor({
                       {item.colorNombre}
                     </span>
                   ) : null}
+                  {item.apliqueNombre ? (
+                    <span style={{ fontWeight: 600, fontSize: 13, color: "#475569" }}>· Aplique: {item.apliqueNombre}</span>
+                  ) : null}
                 </p>
                 <p style={{ margin: "6px 0 0", color: "#475569" }}>{item.descripcionOriginal}</p>
               </div>
@@ -128,12 +133,27 @@ export default function DetalleCotizacionEditor({
               <label style={{ display: "grid", gap: 6, fontWeight: 700, maxWidth: 150, flex: 1 }}>
                 Cantidad
                 <input
-                  type="number"
-                  min={1}
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   name={`cantidad-${item.id}`}
-                  value={item.cantidad}
+                  value={cantidadesEditadas[item.id] ?? String(item.cantidad)}
                   disabled={item.eliminado}
-                  onChange={(event) => actualizarCantidad(item.id, Number(event.target.value || 1))}
+                  onChange={(event) => {
+                    const valorTexto = event.target.value;
+
+                    if (valorTexto === "") {
+                      setCantidadesEditadas((estado) => ({ ...estado, [item.id]: "" }));
+                      return;
+                    }
+
+                    if (!/^[1-9]\d*$/.test(valorTexto)) {
+                      return;
+                    }
+
+                    setCantidadesEditadas((estado) => ({ ...estado, [item.id]: valorTexto }));
+                    actualizarCantidad(item.id, Number(valorTexto));
+                  }}
                   style={{
                     width: "100%",
                     boxSizing: "border-box",

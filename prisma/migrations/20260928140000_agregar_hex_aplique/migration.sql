@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "apliques" ADD COLUMN "hex" VARCHAR(7) NOT NULL DEFAULT '#94a3b8';
+ALTER TABLE "apliques" ALTER COLUMN "hex" DROP DEFAULT;

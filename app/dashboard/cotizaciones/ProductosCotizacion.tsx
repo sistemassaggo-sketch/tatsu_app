@@ -6,6 +6,79 @@ import { useDispatch, useSelector } from "react-redux";
 import { agregarProducto, type RootState } from "@/store/cotizacion";
 
 type ColorProducto = { id: number; nombre: string; hex: string };
+type ApliqueProducto = { id: number; nombre: string; hex: string; familias: string[] };
+
+const ETIQUETA_FAMILIA: Record<string, string> = {
+  ESPEJO: "Espejo",
+  MATE: "Mate",
+  TRANSLUCIDA: "Translúcida",
+};
+
+// Un <option> nativo solo admite texto (no se le puede aplicar un gradiente), así que la familia se
+// marca con un ícono junto al nombre; el efecto visual completo (brillo/transparencia) se ve en el
+// círculo de vista previa una vez elegido el aplique.
+const ICONO_FAMILIA: Record<string, string> = {
+  ESPEJO: "✨ ",
+  TRANSLUCIDA: "◐ ",
+};
+
+// Estilo del círculo de vista previa según la familia del aplique: MATE (o sin familia) se ve como un
+// color plano normal, ESPEJO simula un reflejo de luz (brillante) y TRANSLÚCIDA se ve semitransparente.
+function estiloSwatchAplique(aplique: ApliqueProducto): CSSProperties {
+  const base: CSSProperties = {
+    width: 18,
+    height: 18,
+    borderRadius: "50%",
+    border: "1px solid #cbd5e1",
+    display: "inline-block",
+  };
+
+  if (aplique.familias.includes("ESPEJO")) {
+    return {
+      ...base,
+      background: `radial-gradient(circle at 32% 28%, #ffffff 0%, ${aplique.hex} 45%, ${aplique.hex} 100%)`,
+      boxShadow: "inset 0 0 2px rgba(255,255,255,0.9), 0 1px 2px rgba(15,23,42,0.35)",
+    };
+  }
+
+  if (aplique.familias.includes("TRANSLUCIDA")) {
+    return {
+      ...base,
+      background: `linear-gradient(135deg, ${aplique.hex}cc 0%, ${aplique.hex}33 100%)`,
+      opacity: 0.85,
+    };
+  }
+
+  return { ...base, background: aplique.hex };
+}
+
+// Organiza los apliques de un producto por familia (un aplique con varias familias aparece en cada
+// una); los que no tienen ninguna familia asignada quedan en un grupo aparte al final.
+function agruparApliquesPorFamilia(apliques: ApliqueProducto[]) {
+  const grupos = new Map<string, ApliqueProducto[]>();
+  const sinFamilia: ApliqueProducto[] = [];
+
+  for (const aplique of apliques) {
+    if (aplique.familias.length === 0) {
+      sinFamilia.push(aplique);
+      continue;
+    }
+
+    for (const familia of aplique.familias) {
+      const lista = grupos.get(familia) ?? [];
+      lista.push(aplique);
+      grupos.set(familia, lista);
+    }
+  }
+
+  const gruposOrdenados = Array.from(grupos.entries()).sort(([a], [b]) => a.localeCompare(b));
+
+  if (sinFamilia.length > 0) {
+    gruposOrdenados.push(["Otros", sinFamilia]);
+  }
+
+  return gruposOrdenados;
+}
 
 type Producto = {
   id: number;
@@ -16,7 +89,10 @@ type Producto = {
   casaFamilia?: string | null;
   tipoAcabado?: string | null;
   colores?: ColorProducto[];
+  apliques?: ApliqueProducto[];
 };
+
+
 
 export default function ProductosCotizacion({ productos }: { productos: Producto[] }) {
   const dispatch = useDispatch();
@@ -25,8 +101,10 @@ export default function ProductosCotizacion({ productos }: { productos: Producto
   const [productoHoverId, setProductoHoverId] = useState<number | null>(null);
   // Color elegido por producto mientras se decide qué agregar (solo aplica a productos con colores).
   const [colorElegidoPorProducto, setColorElegidoPorProducto] = useState<Record<number, number>>({});
+  // El aplique es opcional ("aplique si es necesario"), a diferencia del color: se puede deseleccionar.
+  const [apliqueElegidoPorProducto, setApliqueElegidoPorProducto] = useState<Record<number, number>>({});
 
-  function agregarAlCarrito(producto: Producto, color?: ColorProducto) {
+  function agregarAlCarrito(producto: Producto, color?: ColorProducto, aplique?: ApliqueProducto) {
     dispatch(
       agregarProducto({
         id: producto.id,
@@ -37,6 +115,9 @@ export default function ProductosCotizacion({ productos }: { productos: Producto
         colorId: color?.id,
         colorNombre: color?.nombre,
         colorHex: color?.hex,
+        apliqueId: aplique?.id,
+        apliqueNombre: aplique?.nombre,
+        apliqueHex: aplique?.hex,
       }),
     );
   }
@@ -46,10 +127,15 @@ export default function ProductosCotizacion({ productos }: { productos: Producto
       <div style={{ display: "grid", gap: 12 }}>
         {productos.map((producto) => {
           const tieneColores = (producto.colores?.length ?? 0) > 0;
+          const tieneApliques = (producto.apliques?.length ?? 0) > 0;
           const colorIdElegido = colorElegidoPorProducto[producto.id];
-          const yaAgregado = tieneColores
-            ? items.some((item) => item.id === producto.id && item.colorId === colorIdElegido)
-            : items.some((item) => item.id === producto.id && item.colorId == null);
+          const apliqueIdElegido = apliqueElegidoPorProducto[producto.id];
+          const yaAgregado = items.some(
+            (item) =>
+              item.id === producto.id &&
+              (tieneColores ? item.colorId === colorIdElegido : item.colorId == null) &&
+              (item.apliqueId ?? undefined) === apliqueIdElegido,
+          );
 
           return (
             <article key={producto.id} style={estiloProductoFila}>
@@ -121,7 +207,9 @@ export default function ProductosCotizacion({ productos }: { productos: Producto
                 </div>
 
                 <div style={{ minWidth: 120, textAlign: "right" }}>
-                  <p style={{ fontWeight: 800, color: "#176B87" }}>{formatearCop(producto.precioBaseCop ?? 0)}</p>
+                  <p style={{ fontWeight: 800, color: "#176B87" }}>
+                    {formatearCop(producto.precioBaseCop ?? 0)}
+                  </p>
                 </div>
               </div>
 
@@ -153,21 +241,67 @@ export default function ProductosCotizacion({ productos }: { productos: Producto
                 </div>
               ) : null}
 
+              {tieneApliques ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#475569", fontWeight: 600 }}>
+                    Aplique:
+                    <select
+                      value={apliqueIdElegido ?? ""}
+                      onChange={(evento) => {
+                        const valor = evento.target.value;
+                        setApliqueElegidoPorProducto((estado) => {
+                          if (!valor) {
+                            const siguiente = { ...estado };
+                            delete siguiente[producto.id];
+                            return siguiente;
+                          }
+
+                          return { ...estado, [producto.id]: Number(valor) };
+                        });
+                      }}
+                      style={{
+                        border: "1px solid #cbd5e1",
+                        borderRadius: 8,
+                        padding: "6px 8px",
+                        font: "inherit",
+                        fontWeight: 400,
+                      }}
+                    >
+                      <option value="">Ninguno</option>
+                      {agruparApliquesPorFamilia(producto.apliques!).map(([familia, apliquesFamilia]) => (
+                        <optgroup key={familia} label={ETIQUETA_FAMILIA[familia] ?? familia}>
+                          {apliquesFamilia.map((aplique) => (
+                            <option key={aplique.id} value={aplique.id}>
+                              {ICONO_FAMILIA[familia] ?? ""}
+                              {aplique.nombre}
+                            </option>
+                          ))}
+                        </optgroup>
+                      ))}
+                    </select>
+                  </label>
+                  {apliqueIdElegido != null ? (() => {
+                    const apliqueElegido = producto.apliques!.find((a) => a.id === apliqueIdElegido);
+
+                    return apliqueElegido ? (
+                      <span aria-hidden="true" title={apliqueElegido.nombre} style={estiloSwatchAplique(apliqueElegido)} />
+                    ) : null;
+                  })() : null}
+                </div>
+              ) : null}
+
               <button
                 type="button"
                 onClick={() => {
-                  if (tieneColores) {
-                    const color = producto.colores!.find((c) => c.id === colorIdElegido);
+                  const color = tieneColores ? producto.colores!.find((c) => c.id === colorIdElegido) : undefined;
 
-                    if (!color) {
-                      return;
-                    }
-
-                    agregarAlCarrito(producto, color);
+                  if (tieneColores && !color) {
                     return;
                   }
 
-                  agregarAlCarrito(producto);
+                  const aplique = tieneApliques ? producto.apliques!.find((a) => a.id === apliqueIdElegido) : undefined;
+
+                  agregarAlCarrito(producto, color, aplique);
                 }}
                 disabled={yaAgregado || (tieneColores && colorIdElegido == null)}
                 style={{

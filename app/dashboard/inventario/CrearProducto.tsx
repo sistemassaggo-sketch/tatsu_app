@@ -60,7 +60,16 @@ export default function CrearProducto() {
 
             <label style={{ display: "grid", gap: 4, fontSize: 13, fontWeight: 600 }}>
               Precio (COP)
-              <input name="precioBaseCop" type="number" min={0} step="1" style={estiloCampo} />
+              <input
+                name="precioBaseCop"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                onChange={(evento) => {
+                  evento.target.value = evento.target.value.replace(/[^0-9]/g, "");
+                }}
+                style={estiloCampo}
+              />
             </label>
 
             <label style={{ display: "grid", gap: 4, fontSize: 13, fontWeight: 600 }}>
@@ -82,6 +91,52 @@ export default function CrearProducto() {
           <label style={{ display: "grid", gap: 4, fontSize: 13, fontWeight: 600 }}>
             Descripción original
             <textarea name="descripcionOriginal" required rows={2} style={{ ...estiloCampo, resize: "vertical" }} />
+          </label>
+
+          <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))" }}>
+            <label style={{ display: "grid", gap: 4, fontSize: 13, fontWeight: 600 }}>
+              Casa/familia
+              <input name="casaFamilia" type="text" placeholder="Ej. Yamaha" style={estiloCampo} />
+            </label>
+
+            <label style={{ display: "grid", gap: 4, fontSize: 13, fontWeight: 600 }}>
+              Línea
+              <input name="linea" type="text" placeholder="Ej. FZ" style={estiloCampo} />
+            </label>
+
+            <label style={{ display: "grid", gap: 4, fontSize: 13, fontWeight: 600 }}>
+              Cilindraje
+              <input
+                name="cilindraje"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                onChange={(evento) => {
+                  evento.target.value = evento.target.value.replace(/[^0-9]/g, "");
+                }}
+                style={estiloCampo}
+              />
+            </label>
+
+            <label style={{ display: "grid", gap: 4, fontSize: 13, fontWeight: 600 }}>
+              Versión
+              <input name="version" type="text" placeholder="Ej. 2.0" style={estiloCampo} />
+            </label>
+
+            <label style={{ display: "grid", gap: 4, fontSize: 13, fontWeight: 600 }}>
+              Tipo de acabado
+              <input name="tipoAcabado" type="text" placeholder="Ej. Cromado" style={estiloCampo} />
+            </label>
+
+            <label style={{ display: "grid", gap: 4, fontSize: 13, fontWeight: 600 }}>
+              Línea original
+              <input name="lineaOriginal" type="text" style={estiloCampo} />
+            </label>
+          </div>
+
+          <label style={{ display: "grid", gap: 4, fontSize: 13, fontWeight: 600 }}>
+            Detalles
+            <textarea name="detalles" rows={2} style={{ ...estiloCampo, resize: "vertical" }} />
           </label>
 
           <button
