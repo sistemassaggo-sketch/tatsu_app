@@ -61,7 +61,7 @@ const restrictedLinks = ['Reportes', 'Usuarios', 'Clientes', 'Auditoría'];
       name: 'pw_segura',
       sub: '23',
       id: '23',
-      username: 'admin',
+      username: 'pw_segura',
       role: 'almacen',
       status: true,
     },
@@ -84,6 +84,9 @@ const restrictedLinks = ['Reportes', 'Usuarios', 'Clientes', 'Auditoría'];
       sameSite: 'Lax',
     },
   ]);
+
+  // 4. Go directly to a protected page — you will already be authenticated
+  await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
 
   for (const linkName of restrictedLinks) {
   await expect(page.getByRole('link', { name: linkName })).not.toBeVisible();

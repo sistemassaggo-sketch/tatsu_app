@@ -8,7 +8,7 @@ import { NextResponse } from "next/server";
 export async function GET(request: Request) {
   const sesion = await auth();
 
-  if (sesion?.user?.role !== "admin") {
+  if (!["admin", "almacen"].includes(sesion?.user.role ?? "")) {
     return NextResponse.json({ message: "No autorizado." }, { status: 403 });
   }
 
