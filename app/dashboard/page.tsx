@@ -33,7 +33,7 @@ export default async function DashboardPage() {
 
     metricas = [
       { titulo: "Legalizaciones", valor: legalizaciones, color: "#176B87" },
-      { titulo: "Cotizaciones", valor: cotizaciones, color: "#EA5C25" },
+      { titulo: "Cotizaciones", valor: cotizaciones, color: "#EF6C21" },
       { titulo: "Registros de auditoría", valor: auditoria, color: "#7c3aed" },
       { titulo: "Clientes", valor: clientes, color: "#15803d" },
       { titulo: "Usuarios activos", valor: usuarios, color: "#b45309" },
@@ -45,7 +45,7 @@ export default async function DashboardPage() {
     ]);
 
     metricas = [
-      { titulo: "Cotizaciones en revisión de almacén", valor: revision, color: "#EA5C25" },
+      { titulo: "Cotizaciones en revisión de almacén", valor: revision, color: "#EF6C21" },
       { titulo: "Legalizaciones", valor: legalizaciones, color: "#176B87" },
     ];
   } else if (session.user.role === "comercial") {
@@ -55,7 +55,7 @@ export default async function DashboardPage() {
     ]);
 
     metricas = [
-      { titulo: "Cotizaciones", valor: cotizaciones, color: "#EA5C25" },
+      { titulo: "Cotizaciones", valor: cotizaciones, color: "#EF6C21" },
       { titulo: "Legalizaciones", valor: legalizaciones, color: "#176B87" },
     ];
   }

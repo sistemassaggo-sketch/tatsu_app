@@ -15,6 +15,7 @@ type Producto = {
   disponibilidad: boolean;
 };
 
+type ProductoPadre = Producto & { mostrarCliente: boolean; existenciasAnterior: number | null };
 
 type Componente = Producto & { cantidadRequerida: number };
 
@@ -22,7 +23,7 @@ type ColorProducto = { id: number; nombre: string; hex: string };
 type ApliqueProducto = { id: number; nombre: string; hex: string };
 
 type ProductoConComponentes = {
-  productoPadre: Producto;
+  productoPadre: ProductoPadre;
   componentes: Componente[];
   colores: ColorProducto[];
   apliques: ApliqueProducto[];
@@ -261,6 +262,22 @@ export default function FilaProductoInventario({ producto }: { producto: Product
           <p style={{ margin: 0, fontSize: 13, color: "#475569" }}>
             Si las existencias quedan en más de 0, el producto vuelve a marcarse como disponible automáticamente.
           </p>
+          {producto.productoPadre.existenciasAnterior != null ? (
+            <p style={{ margin: 0, fontSize: 13, color: "#475569" }}>
+              Existencias antes del último cambio: <strong>{producto.productoPadre.existenciasAnterior}</strong> 
+            </p>
+          ) : null}
+
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 600, fontSize: 14, cursor: "pointer" }}>
+            <input
+              name="mostrarCliente"
+              type="checkbox"
+              value="true"
+              defaultChecked={producto.productoPadre.mostrarCliente}
+              style={{ width: 18, height: 18 }}
+            />
+            Mostrar este producto al rol cliente en cotizaciones
+          </label>
 
           <div style={estiloContenedorComponentes}>
             <div style={{ fontWeight: 700, fontSize: 14 }}>Componentes</div>
@@ -497,7 +514,7 @@ export default function FilaProductoInventario({ producto }: { producto: Product
               style={{
                 border: "none",
                 borderRadius: 8,
-                background: "#EA5C25",
+                background: "#EF6C21",
                 color: "#fff",
                 padding: "9px 14px",
                 fontWeight: 700,
@@ -531,9 +548,15 @@ export default function FilaProductoInventario({ producto }: { producto: Product
               {producto.productoPadre.precioBaseCop != null ? formatearCop(producto.productoPadre.precioBaseCop) : "Sin precio"}
             </strong>
             <span style={{ color: "#475569" }}>Existencias: {producto.productoPadre.existencias}</span>
+            {producto.productoPadre.existenciasAnterior != null ? (
+              <span style={{ color: "#94a3b8", fontSize: 13 }}>(antes: {producto.productoPadre.existenciasAnterior})</span>
+            ) : null}
             <span style={{ color: producto.productoPadre.disponibilidad ? "#087443" : "#b42318", fontWeight: 700 }}>
               {producto.productoPadre.disponibilidad ? "Disponible" : "No disponible"}
             </span>
+            {!producto.productoPadre.mostrarCliente ? (
+              <span style={{ color: "#b45309", fontWeight: 700 }}>Oculto para el rol cliente</span>
+            ) : null}
           </div>
           {producto.componentes.length > 0 ? (
             <p style={{ margin: 0, fontSize: 13, color: "#475569" }}>

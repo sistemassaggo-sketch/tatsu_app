@@ -39,7 +39,7 @@ export const estiloExito = { color: "#087443", margin: 0 };
 export const estiloBotonNaranja = {
   border: "none",
   borderRadius: 8,
-  background: "#EA5C25",
+  background: "#EF6C21",
   color: "#fff",
   padding: "12px 16px",
   fontWeight: 700,

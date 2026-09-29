@@ -139,6 +139,11 @@ export default function CrearProducto() {
             <textarea name="detalles" rows={2} style={{ ...estiloCampo, resize: "vertical" }} />
           </label>
 
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 600, fontSize: 14, cursor: "pointer" }}>
+            <input name="mostrarCliente" type="checkbox" value="true" defaultChecked style={{ width: 18, height: 18 }} />
+            Mostrar este producto al rol cliente en cotizaciones
+          </label>
+
           <button
             type="submit"
             disabled={enviando}
@@ -146,7 +151,7 @@ export default function CrearProducto() {
               justifySelf: "start",
               border: "none",
               borderRadius: 8,
-              background: "#EA5C25",
+              background: "#EF6C21",
               color: "#fff",
               padding: "9px 14px",
               fontWeight: 700,

@@ -88,7 +88,7 @@ function obtenerColorAccion(accion: string) {
     case "INICIO_SESION":
       return "#176B87";
     case "CREAR_COTIZACION":
-      return "#EA5C25";
+      return "#EF6C21";
     case "MODIFICAR_COTIZACION":
       return "#D97706";
     case "APROBAR_COTIZACION":

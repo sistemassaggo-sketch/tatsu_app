@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useRef } from "react";
 import type { EstadoAccionAlmacen } from "../almacen/acciones";
+import { useConfirmacion } from "../ConfirmModal";
 
 type Aviso = { tipo: "cargando" | "ok" | "error"; mensaje: string } | null;
 
@@ -12,13 +13,17 @@ export default function BotonAccionCotizacion({
   etiqueta,
   color,
   accion,
+  confirmarMensaje,
 }: {
   cotizacionId: number;
   etiqueta: string;
   color: string;
   accion: (estadoPrevio: EstadoAccionAlmacen, formData: FormData) => Promise<EstadoAccionAlmacen>;
+  confirmarMensaje?: string;
 }) {
   const [estado, accionFormulario, enviando] = useActionState(accion, null);
+  const { confirmar, modal } = useConfirmacion();
+  const formularioRef = useRef<HTMLFormElement>(null);
 
   const aviso: Aviso = enviando
     ? { tipo: "cargando", mensaje: `${etiqueta}...` }
@@ -26,12 +31,21 @@ export default function BotonAccionCotizacion({
       ? { tipo: estado.ok ? "ok" : "error", mensaje: estado.mensaje }
       : null;
 
+  async function manejarClic() {
+    if (confirmarMensaje && !(await confirmar(confirmarMensaje))) {
+      return;
+    }
+
+    formularioRef.current?.requestSubmit();
+  }
+
   return (
     <>
-      <form action={accionFormulario}>
+      <form ref={formularioRef} action={accionFormulario}>
         <input type="hidden" name="cotizacionId" value={cotizacionId} />
         <button
-          type="submit"
+          type="button"
+          onClick={manejarClic}
           disabled={enviando}
           style={{
             border: "none",
@@ -86,6 +100,8 @@ export default function BotonAccionCotizacion({
           <style>{"@keyframes giroToastAprobacion { to { transform: rotate(360deg); } }"}</style>
         </div>
       ) : null}
+
+      {modal}
     </>
   );
 }

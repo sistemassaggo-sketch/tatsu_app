@@ -58,7 +58,7 @@ export default function BotonDescargarPdf({
         style={{
           border: "none",
           borderRadius: 8,
-          background: "#EA5C25",
+          background: "#EF6C21",
           color: "#fff",
           padding: compacto ? "10px 14px" : "12px 16px",
           font: "inherit",

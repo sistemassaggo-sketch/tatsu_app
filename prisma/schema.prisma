@@ -47,6 +47,9 @@ model Producto {
   disponibilidad      Boolean          @default(true)
   urlId               String?          @map("url_id")
   existencias         Int              @default(0)
+  // Valor de `existencias` justo antes de la última edición/descuento; null si nunca se ha tocado.
+  existenciasAnterior Int?             @map("existencias_anterior")
+  mostrarCliente       Boolean          @default(true) @map("mostrar_cliente")
   itemsCotizacion     ItemCotizacion[]
   // Relaciones
   componentesPadre  ProductoComponente[] @relation("ProductoPadre")
@@ -204,6 +207,7 @@ enum EstadoCotizacion {
   APROBACION_PRECIO
   NO_APROBADO
   LEGALIZADO
+  DEVUELTO_DESDE_ALMACEN
 }
 
 enum FamiliaAplique {

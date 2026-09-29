@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import { actualizarApliqueGeneral, alternarApliqueActivo, actualizarFamiliasAplique } from "./acciones";
+import { useConfirmacion } from "../ConfirmModal";
 
 type Aplique = { id: number; nombre: string; hex: string; activo: boolean; familias: string[] };
 
@@ -58,6 +59,16 @@ export default function FilaApliqueCatalogo({ aplique }: { aplique: Aplique }) {
   const [estado, accion, enviando] = useActionState(actualizarApliqueGeneral, null);
   const [estadoAtendido, setEstadoAtendido] = useState(estado);
   const [, accionAlternar, alternando] = useActionState(alternarApliqueActivo, null);
+  const { confirmar, modal } = useConfirmacion();
+  const formularioAlternarRef = useRef<HTMLFormElement>(null);
+
+  async function manejarClicAlternar() {
+    if (aplique.activo && !(await confirmar(`¿Inhabilitar el aplique "${aplique.nombre}"? Dejará de poder elegirse en cotizaciones.`))) {
+      return;
+    }
+
+    formularioAlternarRef.current?.requestSubmit();
+  }
 
   if (estado !== estadoAtendido) {
     setEstadoAtendido(estado);
@@ -115,7 +126,7 @@ export default function FilaApliqueCatalogo({ aplique }: { aplique: Aplique }) {
                 <input name="nombre" type="text" defaultValue={aplique.nombre} required style={{ ...estiloCampo, flex: "1 1 120px" }} />
               </div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <button type="submit" disabled={enviando} style={{ ...estiloBoton, background: "#EA5C25", color: "#fff", borderStyle: "none" }}>
+                <button type="submit" disabled={enviando} style={{ ...estiloBoton, background: "#EF6C21", color: "#fff", borderStyle: "none" }}>
                   {enviando ? "Guardando..." : "Guardar"}
                 </button>
                 <button type="button" onClick={() => setEditando(false)} style={estiloBoton}>
@@ -129,18 +140,12 @@ export default function FilaApliqueCatalogo({ aplique }: { aplique: Aplique }) {
               <button type="button" onClick={() => setEditando(true)} style={estiloBoton}>
                 Editar
               </button>
-              <form
-                action={accionAlternar}
-                onSubmit={(evento) => {
-                  if (aplique.activo && !window.confirm(`¿Inhabilitar el aplique "${aplique.nombre}"? Dejará de poder elegirse en cotizaciones.`)) {
-                    evento.preventDefault();
-                  }
-                }}
-              >
+              <form ref={formularioAlternarRef} action={accionAlternar}>
                 <input type="hidden" name="apliqueId" value={aplique.id} />
                 <input type="hidden" name="activo" value={String(!aplique.activo)} />
                 <button
-                  type="submit"
+                  type="button"
+                  onClick={manejarClicAlternar}
                   disabled={alternando}
                   style={aplique.activo ? { ...estiloBoton, borderColor: "#b42318", color: "#b42318" } : estiloBoton}
                 >
@@ -156,6 +161,8 @@ export default function FilaApliqueCatalogo({ aplique }: { aplique: Aplique }) {
           </div>
         </div>
       ) : null}
+
+      {modal}
     </div>
   );
 }

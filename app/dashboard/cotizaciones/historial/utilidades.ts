@@ -5,7 +5,8 @@ export const ESTADOS_HISTORIAL: EstadoCotizacion[] = [
   "REVISION_ALMACEN",
   "APROBACION_PRECIO",
   "NO_APROBADO",
-  "LEGALIZADO"
+  "LEGALIZADO",
+  "DEVUELTO_DESDE_ALMACEN",
 ];
 
 export function formatearCop(valor: number) {

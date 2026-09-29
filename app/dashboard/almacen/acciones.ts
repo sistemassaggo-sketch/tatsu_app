@@ -20,7 +20,8 @@ async function descontarExistenciasProducto<T extends { $queryRaw: typeof prisma
   const [{ filas }] = await tx.$queryRaw<{ filas: bigint }[]>`
     WITH actualizado AS (
       UPDATE public.productos
-      SET existencias = existencias - ${cantidad},
+      SET existencias_anterior = existencias,
+          existencias = existencias - ${cantidad},
           disponibilidad = (existencias - ${cantidad}) > 0
       WHERE id = ${productoId} AND existencias >= ${cantidad}
       RETURNING id
@@ -213,6 +214,54 @@ export async function actualizarCotizacionAlmacen(
   }
 
   return { ok: true, mensaje: "Cotización actualizada." };
+}
+
+// Almacén devuelve una cotización CREADO al vendedor/cliente que la hizo (p. ej. faltan datos o hay
+// que ajustar productos) en vez de procesarla. Queda en DEVUELTO_DESDE_ALMACEN, editable por su dueño
+// en /dashboard/cotizaciones/devueltas, desde donde se reenvía y vuelve a CREADO para que almacén la
+// revise de nuevo.
+export async function devolverCotizacionAlmacen(
+  _estadoPrevio: EstadoAccionAlmacen,
+  formData: FormData,
+): Promise<EstadoAccionAlmacen> {
+  const sesion = await auth();
+  const rolUsuario = sesion?.user?.role;
+
+  if (!rolUsuario || !permisosPermitidos.includes(rolUsuario as (typeof permisosPermitidos)[number])) {
+    return { ok: false, mensaje: "No tienes permisos para devolver cotizaciones." };
+  }
+
+  const cotizacionId = Number(formData.get("cotizacionId"));
+
+  if (!Number.isInteger(cotizacionId)) {
+    return { ok: false, mensaje: "Cotización inválida." };
+  }
+
+  const nombreUsuario = sesion.user.username ?? sesion.user.name ?? "usuario";
+
+  const resultado = await prisma.cotizacion.updateMany({
+    where: { id: cotizacionId, estado: "CREADO" },
+    data: { estado: "DEVUELTO_DESDE_ALMACEN" },
+  });
+
+  if (resultado.count === 0) {
+    return { ok: false, mensaje: "La cotización ya no está en estado CREADO." };
+  }
+
+  await registrarEventoAuditoria({
+    usuario: nombreUsuario,
+    usuarioId: Number(sesion.user?.id ?? 0) || null,
+    accion: "DEVOLVER_COTIZACION",
+    descripcion: `Se devolvió la cotización #${cotizacionId} desde almacén para que el vendedor la corrija.`,
+    recurso: "cotizaciones",
+    recursoId: cotizacionId,
+  });
+
+  revalidatePath("/dashboard/almacen");
+  revalidatePath(`/dashboard/almacen/${cotizacionId}`);
+  revalidatePath("/dashboard/cotizaciones/devueltas");
+
+  return { ok: true, mensaje: "Cotización devuelta." };
 }
 
 export async function aprobarCotizacion(

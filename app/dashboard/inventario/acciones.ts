@@ -101,6 +101,9 @@ export async function actualizarProductoInventario(
     return { ok: false, mensaje: "Las existencias deben ser un número entero mayor o igual a 0." };
   }
 
+  // Checkbox: solo viaja en el FormData cuando está marcado.
+  const mostrarCliente = formData.get("mostrarCliente") === "true";
+
   const producto = await prisma.producto.findUnique({ where: { id: productoId } });
 
   if (!producto) {
@@ -284,6 +287,9 @@ export async function actualizarProductoInventario(
         existencias,
         // Si las existencias quedan en más de 0, el producto vuelve a estar disponible automáticamente.
         ...(existencias > 0 ? { disponibilidad: true } : {}),
+        // Guarda el valor previo solo cuando realmente cambia, para que refleje la última edición real.
+        ...(existencias !== producto.existencias ? { existenciasAnterior: producto.existencias } : {}),
+        mostrarCliente,
       },
     });
 
@@ -390,6 +396,9 @@ export async function crearProducto(
     return { ok: false, mensaje: "Las existencias deben ser un número entero mayor o igual a 0." };
   }
 
+  // Checkbox: solo viaja en el FormData cuando está marcado.
+  const mostrarCliente = formData.get("mostrarCliente") === "true";
+
   const producto = await prisma.producto.create({
     data: {
       codigo,
@@ -397,6 +406,7 @@ export async function crearProducto(
       precioBaseCop: precioBase.valor ?? null,
       existencias,
       disponibilidad: existencias > 0,
+      mostrarCliente,
       casaFamilia: parsearTextoOpcional(formData, "casaFamilia"),
       linea: parsearTextoOpcional(formData, "linea"),
       cilindraje: cilindraje.valor ?? null,

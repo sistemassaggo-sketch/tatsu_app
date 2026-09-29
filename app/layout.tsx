@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Tatsu App",
+  title: "Tatsu Motos",
   description: "Login screen with accessible, high-contrast account access.",
   icons: {
     icon: "/brand-mark.png",

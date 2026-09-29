@@ -124,7 +124,7 @@ const estiloCampo = {
 const estiloBoton = {
   border: "none",
   borderRadius: 8,
-  background: "#EA5C25",
+  background: "#EF6C21",
   color: "#fff",
   padding: "12px 16px",
   fontWeight: 700,

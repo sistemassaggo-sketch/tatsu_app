@@ -61,7 +61,9 @@ export default async function InventarioPage({
         descripcionOriginal: true,
         precioBaseCop: true,
         existencias: true,
+        existenciasAnterior: true,
         disponibilidad: true,
+        mostrarCliente: true,
         componentesPadre: {
           select: {
             cantidadRequeridaComponente: true,
@@ -112,7 +114,9 @@ export default async function InventarioPage({
       descripcionOriginal: producto.descripcionOriginal,
       disponibilidad: producto.disponibilidad,
       existencias: producto.existencias,
+      existenciasAnterior: producto.existenciasAnterior,
       precioBaseCop: producto.precioBaseCop ? Number(producto.precioBaseCop) : null,
+      mostrarCliente: producto.mostrarCliente,
     },
     componentes: producto.componentesPadre.map((pr) => ({
       id: pr.productoComponente.id,

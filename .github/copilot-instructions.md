@@ -45,7 +45,7 @@ applyTo: ["**/*.ts","**/*.tsx","**/*.js","**/*.jsx","app/**","pages/**","compone
 - Para props, estados y parámetros, usa nombres que describan el dato y su función: `usuarioActivo`, `listaProductos`, `esFormularioValido`.
 - Para archivos de servicio o lógica de negocio, usa nombres basados en la acción o el dominio: `servicio-autenticacion.ts`, `validacion-formulario.ts`.
 - Para componentes visuales, usa nombres que indiquen lo que representan: `TarjetaResumen`, `CabeceraDashboard`, `MenuConfiguracion`.
-- use the colors for the app it must be #EA5C25 as principal, now use #176B87 when a user focus on the page this is a event and use #000000 and #FFFFFF for backgrounds shadows and little style modifications
+- use the colors for the app it must be #EF6C21 as principal, now use #176B87 when a user focus on the page this is a event and use #000000 and #FFFFFF for backgrounds shadows and little style modifications
 
 ## Prohibiciones
 

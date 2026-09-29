@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "EstadoCotizacion" ADD VALUE 'DEVUELTO_DESDE_ALMACEN';

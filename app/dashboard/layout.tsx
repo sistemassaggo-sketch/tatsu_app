@@ -80,7 +80,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       <aside
         style={{
           width: 260,
-          background: "#EA5C25",
+          background: "#EF6C21",
           color: "#FFFFFF",
           padding: "24px 18px",
           display: "flex",
@@ -102,7 +102,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
               style={{ objectFit: "contain" }}
             />
           </div>
-          <span style={{ fontSize: 24, fontWeight: 800, lineHeight: 1.2 }}>Tatsu App</span>
+          <span style={{ fontSize: 24, fontWeight: 800, lineHeight: 1.2 }}>Tatsu Motos</span>
         </div>
 
         <div className="usuarioInfo" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", background: "rgba(255,255,255,0.06)", borderRadius: 12, padding: "10px 12px" }}>

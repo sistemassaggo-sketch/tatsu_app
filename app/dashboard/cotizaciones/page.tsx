@@ -34,17 +34,19 @@ export default async function CotizacionesPage({
   // Cada palabra de la búsqueda se exige por separado (AND) para que el orden no importe: buscar
   // "150 roja" encuentra lo mismo que "roja 150".
   const palabras = palabrasBusqueda(busqueda);
-  const filtroProductos =
-    palabras.length > 0
-      ? {
-          AND: palabras.map((palabra) => ({
-            OR: [
-              { codigo: { contains: palabra, mode: "insensitive" as const } },
-              { descripcionOriginal: { contains: palabra, mode: "insensitive" as const } },
-            ],
-          })),
-        }
-      : undefined;
+  const condicionesBusqueda = palabras.map((palabra) => ({
+    OR: [
+      { codigo: { contains: palabra, mode: "insensitive" as const } },
+      { descripcionOriginal: { contains: palabra, mode: "insensitive" as const } },
+    ],
+  }));
+
+  // El rol "cliente" solo ve productos marcados para mostrarse al cotizar; admin/comercial (cotizan
+  // en nombre de cualquier cliente) siguen viendo el catálogo completo.
+  const filtroProductos = {
+    ...(condicionesBusqueda.length > 0 ? { AND: condicionesBusqueda } : {}),
+    ...(esRolCliente ? { mostrarCliente: true } : {}),
+  };
 
   // El rol "cliente" no elige cliente: cotiza siempre para el suyo propio, asociado a su usuario.
   const [clienteFijo, clientes, totalProductos, productosBase] = await Promise.all([
@@ -128,7 +130,12 @@ export default async function CotizacionesPage({
       <section style={estiloSeccion}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <h2 style={estiloTitulo}>Cotización</h2>
-        <Link href="/dashboard/cotizaciones/historial" style={estiloBotonSecundario}>Historial cotizaciones</Link>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          {!esRolCliente ? (
+            <Link href="/dashboard/cotizaciones/devueltas" style={estiloBotonSecundario}>Cotizaciones devueltas</Link>
+          ) : null}
+          <Link href="/dashboard/cotizaciones/historial" style={estiloBotonSecundario}>Historial cotizaciones</Link>
+        </div>
       </div>
       <p style={{ color: "#475569", lineHeight: 1.7, marginBottom: 24 }}>
         {esRolCliente

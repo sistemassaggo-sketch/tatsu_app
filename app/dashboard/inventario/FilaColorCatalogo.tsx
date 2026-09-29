@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import { actualizarColorGeneral, alternarColorActivo } from "./acciones";
+import { useConfirmacion } from "../ConfirmModal";
 
 type Color = { id: number; nombre: string; hex: string; activo: boolean };
 
@@ -37,6 +38,16 @@ export default function FilaColorCatalogo({ color }: { color: Color }) {
   const [estado, accion, enviando] = useActionState(actualizarColorGeneral, null);
   const [estadoAtendido, setEstadoAtendido] = useState(estado);
   const [, accionAlternar, alternando] = useActionState(alternarColorActivo, null);
+  const { confirmar, modal } = useConfirmacion();
+  const formularioAlternarRef = useRef<HTMLFormElement>(null);
+
+  async function manejarClicAlternar() {
+    if (color.activo && !(await confirmar(`¿Inhabilitar el color "${color.nombre}"? Dejará de poder elegirse en cotizaciones.`))) {
+      return;
+    }
+
+    formularioAlternarRef.current?.requestSubmit();
+  }
 
   if (estado !== estadoAtendido) {
     setEstadoAtendido(estado);
@@ -94,7 +105,7 @@ export default function FilaColorCatalogo({ color }: { color: Color }) {
                 <input name="nombre" type="text" defaultValue={color.nombre} required style={{ ...estiloCampo, flex: "1 1 120px" }} />
               </div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <button type="submit" disabled={enviando} style={{ ...estiloBoton, background: "#EA5C25", color: "#fff", borderStyle: "none" }}>
+                <button type="submit" disabled={enviando} style={{ ...estiloBoton, background: "#EF6C21", color: "#fff", borderStyle: "none" }}>
                   {enviando ? "Guardando..." : "Guardar"}
                 </button>
                 <button type="button" onClick={() => setEditando(false)} style={estiloBoton}>
@@ -108,18 +119,12 @@ export default function FilaColorCatalogo({ color }: { color: Color }) {
               <button type="button" onClick={() => setEditando(true)} style={estiloBoton}>
                 Editar
               </button>
-              <form
-                action={accionAlternar}
-                onSubmit={(evento) => {
-                  if (color.activo && !window.confirm(`¿Inhabilitar el color "${color.nombre}"? Dejará de poder elegirse en cotizaciones.`)) {
-                    evento.preventDefault();
-                  }
-                }}
-              >
+              <form ref={formularioAlternarRef} action={accionAlternar}>
                 <input type="hidden" name="colorId" value={color.id} />
                 <input type="hidden" name="activo" value={String(!color.activo)} />
                 <button
-                  type="submit"
+                  type="button"
+                  onClick={manejarClicAlternar}
                   disabled={alternando}
                   style={color.activo ? { ...estiloBoton, borderColor: "#b42318", color: "#b42318" } : estiloBoton}
                 >
@@ -130,6 +135,8 @@ export default function FilaColorCatalogo({ color }: { color: Color }) {
           )}
         </div>
       ) : null}
+
+      {modal}
     </div>
   );
 }

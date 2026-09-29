@@ -77,7 +77,7 @@ export default async function DetalleCotizacionHistorialPage({ params }: { param
       <div style={{ color: "#475569", lineHeight: 1.7, marginBottom: 24 }}>
         <p style={{ margin: 0, overflowWrap: "anywhere" }}>Código: <strong>{cotizacion.codigo}</strong></p>
         <p style={{ margin: 0 }}>Cliente: {cotizacion.cliente.nombre}</p>
-        <p style={{ margin: 0 }}>Estado: <strong>{cotizacion.estado}</strong></p>
+        <p style={{ margin: 0 }}>Estado: <strong>{esRolCliente ? "Cotización recibida" : cotizacion.estado}</strong></p>
         <p style={{ margin: 0 }}>Fecha: {formatearFecha(cotizacion.fechaCreacion)}</p>
       </div>
 

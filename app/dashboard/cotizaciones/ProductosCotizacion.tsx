@@ -1,12 +1,12 @@
 "use client";
 
 import Image from "next/image";
-import { useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { agregarProducto, type RootState } from "@/store/cotizacion";
 
-type ColorProducto = { id: number; nombre: string; hex: string };
-type ApliqueProducto = { id: number; nombre: string; hex: string; familias: string[] };
+export type ColorProducto = { id: number; nombre: string; hex: string };
+export type ApliqueProducto = { id: number; nombre: string; hex: string; familias: string[] };
 
 const ETIQUETA_FAMILIA: Record<string, string> = {
   ESPEJO: "Espejo",
@@ -14,16 +14,20 @@ const ETIQUETA_FAMILIA: Record<string, string> = {
   TRANSLUCIDA: "Translúcida",
 };
 
-// Un <option> nativo solo admite texto (no se le puede aplicar un gradiente), así que la familia se
-// marca con un ícono junto al nombre; el efecto visual completo (brillo/transparencia) se ve en el
-// círculo de vista previa una vez elegido el aplique.
-const ICONO_FAMILIA: Record<string, string> = {
-  ESPEJO: "✨ ",
-  TRANSLUCIDA: "◐ ",
-};
+// "Tornasol" no es un solo color, sino un degradado; Aplique.hex solo guarda un "#RRGGBB", así que se
+// trata como caso especial por nombre (el hex guardado para ese aplique no se usa acá).
+const GRADIENTE_TORNASOL =
+  "conic-gradient(from 180deg, #ff0000, #ff9900, #ffee00, #33ff00, #00fff2, #0066ff, #cc00ff, #ff0000)";
 
-// Estilo del círculo de vista previa según la familia del aplique: MATE (o sin familia) se ve como un
-// color plano normal, ESPEJO simula un reflejo de luz (brillante) y TRANSLÚCIDA se ve semitransparente.
+function esTornasol(nombre: string) {
+  return nombre.trim().toLowerCase() === "tornasol";
+}
+
+// Estilo del círculo de vista previa según el aplique: "Tornasol" siempre se ve como degradado
+// arcoíris (sin importar su familia); si no, el color base es siempre el hex plano del aplique y la
+// familia se aplica encima como un CSS `filter` (no un gradiente): ESPEJO sube brillo/saturación para
+// verse brillante, TRANSLÚCIDA baja la opacidad vía filter, MATE desatura y opaca levemente para verse
+// sin brillo.
 function estiloSwatchAplique(aplique: ApliqueProducto): CSSProperties {
   const base: CSSProperties = {
     width: 18,
@@ -31,25 +35,26 @@ function estiloSwatchAplique(aplique: ApliqueProducto): CSSProperties {
     borderRadius: "50%",
     border: "1px solid #cbd5e1",
     display: "inline-block",
+    background: aplique.hex,
   };
 
+  if (esTornasol(aplique.nombre)) {
+    return { ...base, background: GRADIENTE_TORNASOL };
+  }
+
   if (aplique.familias.includes("ESPEJO")) {
-    return {
-      ...base,
-      background: `radial-gradient(circle at 32% 28%, #ffffff 0%, ${aplique.hex} 45%, ${aplique.hex} 100%)`,
-      boxShadow: "inset 0 0 2px rgba(255,255,255,0.9), 0 1px 2px rgba(15,23,42,0.35)",
-    };
+    return { ...base, filter: "brightness(1.12) saturate(1.1) drop-shadow(0 0 1px rgba(255,255,255,0.6))" };
   }
 
   if (aplique.familias.includes("TRANSLUCIDA")) {
-    return {
-      ...base,
-      background: `linear-gradient(135deg, ${aplique.hex}cc 0%, ${aplique.hex}33 100%)`,
-      opacity: 0.85,
-    };
+    return { ...base, filter: "opacity(80%)" };
   }
 
-  return { ...base, background: aplique.hex };
+  if (aplique.familias.includes("MATE")) {
+    return { ...base, filter: "saturate(0.92) brightness(0.98)" };
+  }
+
+  return base;
 }
 
 // Organiza los apliques de un producto por familia (un aplique con varias familias aparece en cada
@@ -79,6 +84,128 @@ function agruparApliquesPorFamilia(apliques: ApliqueProducto[]) {
 
   return gruposOrdenados;
 }
+
+// Reemplaza al <select> nativo (que no puede pintar el swatch con filtro dentro de cada opción): un
+// botón que despliega un panel agrupado por familia, igual que los optgroups, pero con el círculo de
+// color real (con su filtro de familia) en cada fila.
+export function SelectorAplique({
+  apliques,
+  apliqueIdElegido,
+  onElegir,
+}: {
+  apliques: ApliqueProducto[];
+  apliqueIdElegido: number | undefined;
+  onElegir: (apliqueId: number | undefined) => void;
+}) {
+  const [abierto, setAbierto] = useState(false);
+  const contenedorRef = useRef<HTMLDivElement>(null);
+  const apliqueElegido = apliques.find((aplique) => aplique.id === apliqueIdElegido);
+
+  useEffect(() => {
+    function alHacerClicAfuera(evento: MouseEvent) {
+      if (contenedorRef.current && !contenedorRef.current.contains(evento.target as Node)) {
+        setAbierto(false);
+      }
+    }
+
+    document.addEventListener("mousedown", alHacerClicAfuera);
+    return () => document.removeEventListener("mousedown", alHacerClicAfuera);
+  }, []);
+
+  return (
+    <div ref={contenedorRef} style={{ position: "relative" }}>
+      <button
+        type="button"
+        onClick={() => setAbierto((valor) => !valor)}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          border: "1px solid #cbd5e1",
+          borderRadius: 8,
+          background: "#fff",
+          padding: "6px 8px",
+          font: "inherit",
+          fontWeight: 400,
+          cursor: "pointer",
+          minWidth: 140,
+        }}
+      >
+        {apliqueElegido ? (
+          <span aria-hidden="true" style={estiloSwatchAplique(apliqueElegido)} />
+        ) : null}
+        <span>{apliqueElegido ? apliqueElegido.nombre : "Ninguno"}</span>
+        <span aria-hidden="true" style={{ marginLeft: "auto", color: "#94a3b8" }}>▾</span>
+      </button>
+
+      {abierto ? (
+        <div
+          style={{
+            position: "absolute",
+            top: "100%",
+            left: 0,
+            zIndex: 20,
+            marginTop: 4,
+            minWidth: 200,
+            background: "#fff",
+            border: "1px solid #cbd5e1",
+            borderRadius: 8,
+            boxShadow: "0 10px 24px rgba(15, 23, 42, 0.12)",
+            maxHeight: 260,
+            overflowY: "auto",
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => {
+              onElegir(undefined);
+              setAbierto(false);
+            }}
+            style={estiloOpcionSelectorAplique}
+          >
+            Ninguno
+          </button>
+
+          {agruparApliquesPorFamilia(apliques).map(([familia, apliquesFamilia]) => (
+            <div key={familia}>
+              <div style={{ padding: "6px 10px", fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase" }}>
+                {ETIQUETA_FAMILIA[familia] ?? familia}
+              </div>
+              {apliquesFamilia.map((aplique) => (
+                <button
+                  key={aplique.id}
+                  type="button"
+                  onClick={() => {
+                    onElegir(aplique.id);
+                    setAbierto(false);
+                  }}
+                  style={estiloOpcionSelectorAplique}
+                >
+                  <span aria-hidden="true" style={estiloSwatchAplique(aplique)} />
+                  {aplique.nombre}
+                </button>
+              ))}
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+const estiloOpcionSelectorAplique: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  width: "100%",
+  textAlign: "left",
+  border: "none",
+  borderBottom: "1px solid #f1f5f9",
+  background: "#fff",
+  padding: "8px 10px",
+  fontSize: 13,
+  cursor: "pointer",
+};
 
 type Producto = {
   id: number;
@@ -243,50 +370,22 @@ export default function ProductosCotizacion({ productos }: { productos: Producto
 
               {tieneApliques ? (
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                  <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#475569", fontWeight: 600 }}>
-                    Aplique:
-                    <select
-                      value={apliqueIdElegido ?? ""}
-                      onChange={(evento) => {
-                        const valor = evento.target.value;
-                        setApliqueElegidoPorProducto((estado) => {
-                          if (!valor) {
-                            const siguiente = { ...estado };
-                            delete siguiente[producto.id];
-                            return siguiente;
-                          }
+                  <span style={{ fontSize: 13, color: "#475569", fontWeight: 600 }}>Aplique:</span>
+                  <SelectorAplique
+                    apliques={producto.apliques!}
+                    apliqueIdElegido={apliqueIdElegido}
+                    onElegir={(apliqueId) => {
+                      setApliqueElegidoPorProducto((estado) => {
+                        if (apliqueId == null) {
+                          const siguiente = { ...estado };
+                          delete siguiente[producto.id];
+                          return siguiente;
+                        }
 
-                          return { ...estado, [producto.id]: Number(valor) };
-                        });
-                      }}
-                      style={{
-                        border: "1px solid #cbd5e1",
-                        borderRadius: 8,
-                        padding: "6px 8px",
-                        font: "inherit",
-                        fontWeight: 400,
-                      }}
-                    >
-                      <option value="">Ninguno</option>
-                      {agruparApliquesPorFamilia(producto.apliques!).map(([familia, apliquesFamilia]) => (
-                        <optgroup key={familia} label={ETIQUETA_FAMILIA[familia] ?? familia}>
-                          {apliquesFamilia.map((aplique) => (
-                            <option key={aplique.id} value={aplique.id}>
-                              {ICONO_FAMILIA[familia] ?? ""}
-                              {aplique.nombre}
-                            </option>
-                          ))}
-                        </optgroup>
-                      ))}
-                    </select>
-                  </label>
-                  {apliqueIdElegido != null ? (() => {
-                    const apliqueElegido = producto.apliques!.find((a) => a.id === apliqueIdElegido);
-
-                    return apliqueElegido ? (
-                      <span aria-hidden="true" title={apliqueElegido.nombre} style={estiloSwatchAplique(apliqueElegido)} />
-                    ) : null;
-                  })() : null}
+                        return { ...estado, [producto.id]: apliqueId };
+                      });
+                    }}
+                  />
                 </div>
               ) : null}
 
@@ -403,7 +502,7 @@ function formatearCop(valor: number) {
 const estiloBotonNaranja: CSSProperties = {
   border: "none",
   borderRadius: 8,
-  background: "#EA5C25",
+  background: "#EF6C21",
   color: "#fff",
   padding: "10px 14px",
   fontWeight: 700,

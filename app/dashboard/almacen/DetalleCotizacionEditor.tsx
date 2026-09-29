@@ -1,7 +1,9 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
-import { actualizarCotizacionAlmacen } from "./acciones";
+import Link from "next/link";
+import { useActionState, useMemo, useRef, useState } from "react";
+import { actualizarCotizacionAlmacen, devolverCotizacionAlmacen } from "./acciones";
+import { useConfirmacion } from "../ConfirmModal";
 
 type ItemCotizacionEditor = {
   id: number;
@@ -30,6 +32,10 @@ export default function DetalleCotizacionEditor({
   esMinorista?: boolean;
 }) {
   const [estadoAccion, accionFormulario] = useActionState(actualizarCotizacionAlmacen, null);
+  const [estadoDevolucion, accionDevolver, devolviendo] = useActionState(devolverCotizacionAlmacen, null);
+  const { confirmar, modal } = useConfirmacion();
+  const formularioRef = useRef<HTMLFormElement>(null);
+  const formularioDevolverRef = useRef<HTMLFormElement>(null);
   const [items, setItems] = useState(
     itemsIniciales.map((item) => ({
       ...item,
@@ -74,17 +80,30 @@ export default function DetalleCotizacionEditor({
     );
   };
 
-  const manejarSubmit = (evento: React.FormEvent<HTMLFormElement>) => {
+  const manejarClicGuardar = async () => {
     if (bajoMinimo) {
-      evento.preventDefault();
       setMensajeError("La cotización debe tener un total mínimo de $500.000 para poder guardarse.");
-    } else {
-      setMensajeError("");
+      return;
+    }
+
+    setMensajeError("");
+
+    // Si no queda descuento pendiente, guardar legaliza de inmediato y descuenta existencias ya
+    // mismo; si queda descuento, las existencias se descontarán después, cuando admin apruebe.
+    if (await confirmar("Las existencias de estos productos se descontarán del inventario. ¿Continuar?")) {
+      formularioRef.current?.requestSubmit();
+    }
+  };
+
+  const manejarClicDevolver = async () => {
+    if (await confirmar("¿Devolver esta cotización al vendedor/cliente para que la corrija?")) {
+      formularioDevolverRef.current?.requestSubmit();
     }
   };
 
   return (
-    <form action={accionFormulario} onSubmit={manejarSubmit} style={{ display: "grid", gap: 20 }}>
+    <>
+    <form ref={formularioRef} action={accionFormulario} style={{ display: "grid", gap: 20 }}>
       <input type="hidden" name="cotizacionId" value={cotizacionId} />
 
       <div style={{ display: "grid", gap: 12 }}>
@@ -172,7 +191,7 @@ export default function DetalleCotizacionEditor({
                 style={{
                   border: "none",
                   borderRadius: 8,
-                  background: item.eliminado ? "#176B87" : "#EA5C25",
+                  background: item.eliminado ? "#176B87" : "#EF6C21",
                   color: "#fff",
                   padding: "10px 14px",
                   fontWeight: 700,
@@ -217,12 +236,13 @@ export default function DetalleCotizacionEditor({
 
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
         <button
-          type="submit"
+          type="button"
+          onClick={manejarClicGuardar}
           disabled={bajoMinimo}
           style={{
             border: "none",
             borderRadius: 8,
-            background: bajoMinimo ? "#cbd5e1" : "#EA5C25",
+            background: bajoMinimo ? "#cbd5e1" : "#EF6C21",
             color: bajoMinimo ? "#475569" : "#fff",
             padding: "12px 16px",
             fontWeight: 700,
@@ -232,7 +252,7 @@ export default function DetalleCotizacionEditor({
         >
           Guardar y enviar a revisión
         </button>
-        <a href="/dashboard/almacen" style={{
+        <Link href="/dashboard/almacen" style={{
           border: "1px solid #176B87",
           borderRadius: 8,
           color: "#176B87",
@@ -241,9 +261,37 @@ export default function DetalleCotizacionEditor({
           fontWeight: 700,
         }}>
           Volver
-        </a>
+        </Link>
       </div>
     </form>
+
+    <form ref={formularioDevolverRef} action={accionDevolver} style={{ marginTop: 16 }}>
+      <input type="hidden" name="cotizacionId" value={cotizacionId} />
+      <button
+        type="button"
+        onClick={manejarClicDevolver}
+        disabled={devolviendo}
+        style={{
+          border: "1px solid #b42318",
+          borderRadius: 8,
+          background: "#fff",
+          color: "#b42318",
+          padding: "11px 16px",
+          fontWeight: 700,
+          cursor: devolviendo ? "wait" : "pointer",
+        }}
+      >
+        {devolviendo ? "Devolviendo..." : "Devolver al vendedor/cliente"}
+      </button>
+      {estadoDevolucion?.mensaje ? (
+        <p style={{ margin: "8px 0 0", color: estadoDevolucion.ok ? "#087443" : "#b42318", fontWeight: 700 }}>
+          {estadoDevolucion.mensaje}
+        </p>
+      ) : null}
+    </form>
+
+    {modal}
+    </>
   );
 }
 

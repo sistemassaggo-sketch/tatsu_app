@@ -105,6 +105,7 @@ export default async function AprobacionPreciosPage() {
                     etiqueta="Aprobar cotización"
                     color="#087443"
                     accion={aprobarCotizacion}
+                    confirmarMensaje="Las existencias de estos productos se descontarán del inventario. ¿Continuar?"
                   />
                   <BotonAccionCotizacion
                     cotizacionId={cotizacion.id}

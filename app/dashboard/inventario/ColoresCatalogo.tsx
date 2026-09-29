@@ -90,7 +90,7 @@ export default function ColoresCatalogo({ colores }: { colores: Color[] }) {
             style={{
               border: "none",
               borderRadius: 8,
-              background: "#EA5C25",
+              background: "#EF6C21",
               color: "#fff",
               padding: "9px 14px",
               fontWeight: 700,

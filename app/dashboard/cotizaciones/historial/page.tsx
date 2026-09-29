@@ -118,7 +118,7 @@ export default async function HistorialCotizacionesPage({
                   <p style={{ margin: "6px 0 0", color: "#475569" }}>Cliente: {cotizacion.cliente.nombre}</p>
                 </div>
                 <div style={{ textAlign: "right" }}>
-                  <p style={{ margin: 0, fontWeight: 700 }}>Estado: {cotizacion.estado}</p>
+                  <p style={{ margin: 0, fontWeight: 700 }}>Estado: {esRolCliente ? "Cotización recibida" : cotizacion.estado}</p>
                   <p style={{ margin: "6px 0 0", color: "#475569" }}>{formatearFecha(cotizacion.fechaCreacion)}</p>
                 </div>
               </div>
