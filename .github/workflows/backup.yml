@@ -32,10 +32,10 @@ jobs:
         run: |
           sudo curl https://rclone.org/install.sh | sudo bash
 
-      - name: Setup Rclone Configuration from Secrets
+      - name: Configurar Rclone desde Base64
         run: |
           mkdir -p ~/.config/rclone
-          echo "${{ secrets.RCLONE_CONFIG }}" > ~/.config/rclone/rclone.conf
+          echo "${{ secrets.RCLONE_CONFIG }}" | base64 --decode > ~/.config/rclone/rclone.conf
 
       - name: Run pg_dump & Upload to Google Drive
         env:
