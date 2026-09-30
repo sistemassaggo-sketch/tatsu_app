@@ -11,6 +11,8 @@ jobs:
   backup:
     runs-on: ubuntu-latest
 
+    environment: Production
+
     # 1. Define el secreto a nivel de JOB para que no falle el alcance
     env:
       NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
