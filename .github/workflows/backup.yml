@@ -11,6 +11,10 @@ jobs:
   backup:
     runs-on: ubuntu-latest
 
+    # 1. Define el secreto a nivel de JOB para que no falle el alcance
+    env:
+      NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -33,6 +37,13 @@ jobs:
         env:
           NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
         run: |
+
+          # 2. Validación de seguridad para ver si llegó vacío
+          if [ -z "$NEON_DATABASE_URL" ]; then
+            echo "::error:: La variable NEON_DATABASE_URL está vacía. Revisa tus GitHub Secrets."
+            exit 1
+          fi
+          
           TIMESTAMP=$(date +"%Y-%m-%d")
           BACKUP_FILE="db_backup_$TIMESTAMP.sql"
           
