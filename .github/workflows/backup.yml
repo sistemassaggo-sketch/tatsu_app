@@ -52,7 +52,7 @@ jobs:
           BACKUP_FILE="db_backup_$TIMESTAMP.sql"
           
           echo "Generando respaldo desde Neon..."
-          pg_dump "$NEON_DATABASE_URL" -f "$BACKUP_FILE"
+          /usr/lib/postgresql/18/bin/pg_dump "$NEON_DATABASE_URL" -f "$BACKUP_FILE"
           
           echo "Subiendo a Google Drive..."
           rclone copy "$BACKUP_FILE" "gdrive:DatabaseBackups"
