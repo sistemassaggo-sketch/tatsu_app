@@ -99,15 +99,15 @@ export default function CarritoCotizacion({ esRolCliente = false }: { esRolClien
               <div style={{ width: 62, height: 62, borderRadius: 12, background: "#eef6fb", overflow: "hidden", display: "grid", placeItems: "center", position: "relative", flexShrink: 0 }}>
                 {grupo.imagen ? <Image src={grupo.imagen} alt={grupo.codigo} fill sizes="62px" style={{ objectFit: "cover" }} /> : <span>📦</span>}
               </div>
-              <div>
-                <p style={{ fontWeight: 800 }}>{grupo.codigo}</p>
-                <p style={{ color: "#475569" }}>{grupo.descripcionGeneral}</p>
+              <div style={{ minWidth: 0, flex: "1 1 180px" }}>
+                <p style={{ fontWeight: 800, overflowWrap: "anywhere" }}>{grupo.codigo}</p>
+                <p style={{ color: "#475569", overflowWrap: "anywhere" }}>{grupo.descripcionGeneral}</p>
               </div>
             </div>
 
             <div style={{ display: "grid", gap: 10 }}>
               {grupo.lineas.map((item) => (
-                <div key={claveItem(item)} style={estiloSubLinea}>
+                <div key={claveItem(item)} className="linea-item" style={estiloSubLinea}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", minWidth: 0 }}>
                     {item.colorNombre ? (
                       <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontWeight: 600, fontSize: 13, color: "#475569" }}>
@@ -157,11 +157,12 @@ export default function CarritoCotizacion({ esRolCliente = false }: { esRolClien
                         setCantidadesEditadas((estado) => ({ ...estado, [claveItem(item)]: String(valor) }));
                         dispatch(actualizarCantidad({ id: item.id, colorId: item.colorId, apliqueId: item.apliqueId, cantidad: valor }));
                       }}
-                      style={{ width: 70, ...estiloCampo }}
+                      className="input-cantidad"
+                      style={{ ...estiloCampo }}
                     />
                   </label>
 
-                  <div style={{ textAlign: "right" }}>
+                  <div className="precio-item">
                     <p style={{ color: "#475569", fontSize: 12 }}>{formatearCop(item.precio)} c/u</p>
                     <p style={{ fontWeight: 800, color: "#176B87" }}>{formatearCop(item.precio * item.cantidad)}</p>
                   </div>
@@ -261,6 +262,27 @@ export default function CarritoCotizacion({ esRolCliente = false }: { esRolClien
           </Link>
         </div>
       </div>
+
+      <style jsx>{`
+        .precio-item {
+          text-align: right;
+        }
+        .input-cantidad {
+          width: 70px;
+        }
+        @container (max-width: 560px) {
+          .linea-item {
+            grid-template-columns: 1fr !important;
+          }
+          .input-cantidad {
+            width: 100%;
+            max-width: 140px;
+          }
+          .precio-item {
+            text-align: left;
+          }
+        }
+      `}</style>
     </section>
   );
 }
@@ -334,7 +356,13 @@ const estiloTarjetaProducto: CSSProperties = {
   border: "1px solid #e2e8f0",
   borderRadius: 12,
   padding: 16,
-};
+  // Container query en vez de @media: el sidebar del dashboard (260px, en flujo hasta 768px de
+  // ancho de ventana) hace que el ancho REAL disponible para esta tarjeta no se pueda predecir solo
+  // a partir del ancho de la ventana (por eso el botón "Eliminar" se salía en tablets como Surface
+  // Pro aunque el viewport fuera más ancho que el breakpoint). Con container-type, el breakpoint de
+  // abajo reacciona al ancho real de la tarjeta, sin importar cuánto sidebar/padding lo haya reducido.
+  containerType: "inline-size",
+} as CSSProperties;
 
 // Grid con columnas fijas (no flex) para que la cantidad y el precio unitario queden siempre en la
 // misma posición horizontal entre filas, sin importar cuánto varíe el largo de los demás textos.

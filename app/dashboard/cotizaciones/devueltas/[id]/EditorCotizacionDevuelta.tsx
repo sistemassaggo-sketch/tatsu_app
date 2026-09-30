@@ -8,6 +8,9 @@ import { SelectorAplique, type ApliqueProducto, type ColorProducto } from "../..
 
 type ItemExistente = {
   id: number;
+  productoId: number;
+  colorId: number | null;
+  apliqueId: number | null;
   codigo: string;
   descripcionOriginal: string;
   colorNombre?: string | null;
@@ -17,6 +20,7 @@ type ItemExistente = {
   precioUnitario: number;
   cantidad: number;
   eliminado?: boolean;
+  eliminadoPor?: string | null;
 };
 
 type ProductoCatalogo = {
@@ -109,7 +113,43 @@ export default function EditorCotizacionDevuelta({
     setNuevosItems((actuales) => actuales.map((item) => (item.clave === clave ? { ...item, cantidad: Math.max(1, cantidad) } : item)));
   }
 
+  // Mismo comportamiento que el carrito de compras: un producto ya en la cotización (activo o
+  // eliminado) con el mismo color/aplique no se duplica — se reactiva (si estaba eliminado) y su
+  // cantidad sube en 1, igual que agregar dos veces el mismo producto al carrito.
   function agregarProducto(producto: ProductoCatalogo, color?: ColorProducto, aplique?: ApliqueProducto) {
+    const colorId = color?.id ?? null;
+    const apliqueId = aplique?.id ?? null;
+
+    const existenteCoincide = items.some(
+      (item) => item.productoId === producto.id && item.colorId === colorId && item.apliqueId === apliqueId,
+    );
+
+    if (existenteCoincide) {
+      setItems((actuales) =>
+        actuales.map((item) =>
+          item.productoId === producto.id && item.colorId === colorId && item.apliqueId === apliqueId
+            ? { ...item, eliminado: false, cantidad: item.cantidad + 1 }
+            : item,
+        ),
+      );
+      return;
+    }
+
+    const nuevoCoincide = nuevosItems.some(
+      (item) => item.productoId === producto.id && (item.colorId ?? null) === colorId && (item.apliqueId ?? null) === apliqueId,
+    );
+
+    if (nuevoCoincide) {
+      setNuevosItems((actuales) =>
+        actuales.map((item) =>
+          item.productoId === producto.id && (item.colorId ?? null) === colorId && (item.apliqueId ?? null) === apliqueId
+            ? { ...item, cantidad: item.cantidad + 1 }
+            : item,
+        ),
+      );
+      return;
+    }
+
     setNuevosItems((actuales) => [
       ...actuales,
       {
@@ -217,6 +257,11 @@ export default function EditorCotizacionDevuelta({
                   {item.apliqueNombre ? <span style={{ fontWeight: 600, fontSize: 13, color: "#475569" }}>· Aplique: {item.apliqueNombre}</span> : null}
                 </p>
                 <p style={{ margin: "4px 0 0", color: "#475569", fontSize: 13 }}>{item.descripcionOriginal}</p>
+                {item.eliminado ? (
+                  <p style={{ margin: "4px 0 0", color: "#b42318", fontSize: 12, fontWeight: 700 }}>
+                    {item.eliminadoPor ? `Eliminado por ${item.eliminadoPor}` : "Eliminado"}
+                  </p>
+                ) : null}
               </div>
 
               <label style={{ display: "grid", gap: 4, fontSize: 13, fontWeight: 600 }}>
@@ -225,7 +270,7 @@ export default function EditorCotizacionDevuelta({
                   type="text"
                   inputMode="numeric"
                   pattern="[0-9]*"
-                  disabled={item.eliminado}
+                  disabled={item.eliminado || enviando}
                   value={cantidadesTexto[`existente-${item.id}`] ?? String(item.cantidad)}
                   onChange={(evento) => {
                     const valorTexto = evento.target.value;
@@ -253,6 +298,7 @@ export default function EditorCotizacionDevuelta({
               <button
                 type="button"
                 onClick={() => alternarEliminado(item.id)}
+                disabled={enviando}
                 style={{
                   border: item.eliminado ? "1px solid #176B87" : "1px solid #b42318",
                   borderRadius: 8,
@@ -261,10 +307,10 @@ export default function EditorCotizacionDevuelta({
                   padding: "8px 12px",
                   fontWeight: 700,
                   fontSize: 13,
-                  cursor: "pointer",
+                  cursor: enviando ? "not-allowed" : "pointer",
                 }}
               >
-                {item.eliminado ? "Deshacer" : "Eliminar"}
+                {item.eliminado ? "Activar" : "Eliminar"}
               </button>
             </div>
           ))
@@ -296,6 +342,7 @@ export default function EditorCotizacionDevuelta({
                   type="text"
                   inputMode="numeric"
                   pattern="[0-9]*"
+                  disabled={enviando}
                   value={cantidadesTexto[`nuevo-${item.clave}`] ?? String(item.cantidad)}
                   onChange={(evento) => {
                     const valorTexto = evento.target.value;
@@ -323,7 +370,8 @@ export default function EditorCotizacionDevuelta({
               <button
                 type="button"
                 onClick={() => quitarNuevo(item.clave)}
-                style={{ border: "1px solid #b42318", borderRadius: 8, background: "#fff", color: "#b42318", padding: "8px 12px", fontWeight: 700, fontSize: 13, cursor: "pointer" }}
+                disabled={enviando}
+                style={{ border: "1px solid #b42318", borderRadius: 8, background: "#fff", color: "#b42318", padding: "8px 12px", fontWeight: 700, fontSize: 13, cursor: enviando ? "not-allowed" : "pointer" }}
               >
                 Quitar
               </button>
@@ -408,6 +456,7 @@ export default function EditorCotizacionDevuelta({
                   });
                 }}
                 onAgregar={agregarProducto}
+                deshabilitado={enviando}
               />
             ))}
           </div>
@@ -446,6 +495,7 @@ function TarjetaProductoAgregar({
   onElegirColor,
   onElegirAplique,
   onAgregar,
+  deshabilitado,
 }: {
   producto: ProductoCatalogo;
   colorIdElegido: number | undefined;
@@ -453,6 +503,7 @@ function TarjetaProductoAgregar({
   onElegirColor: (colorId: number) => void;
   onElegirAplique: (apliqueId: number | undefined) => void;
   onAgregar: (producto: ProductoCatalogo, color?: ColorProducto, aplique?: ApliqueProducto) => void;
+  deshabilitado?: boolean;
 }) {
   const tieneColores = producto.colores.length > 0;
   const tieneApliques = producto.apliques.length > 0;
@@ -508,7 +559,7 @@ function TarjetaProductoAgregar({
           const aplique = tieneApliques ? producto.apliques.find((a) => a.id === apliqueIdElegido) : undefined;
           onAgregar(producto, color, aplique);
         }}
-        disabled={tieneColores && colorIdElegido == null}
+        disabled={deshabilitado || (tieneColores && colorIdElegido == null)}
         style={{
           border: "none",
           borderRadius: 8,
@@ -516,8 +567,8 @@ function TarjetaProductoAgregar({
           color: "#fff",
           padding: "10px 14px",
           fontWeight: 700,
-          cursor: tieneColores && colorIdElegido == null ? "not-allowed" : "pointer",
-          opacity: tieneColores && colorIdElegido == null ? 0.6 : 1,
+          cursor: deshabilitado || (tieneColores && colorIdElegido == null) ? "not-allowed" : "pointer",
+          opacity: deshabilitado || (tieneColores && colorIdElegido == null) ? 0.6 : 1,
         }}
       >
         {tieneColores && colorIdElegido == null ? "Elige un color" : "Agregar"}

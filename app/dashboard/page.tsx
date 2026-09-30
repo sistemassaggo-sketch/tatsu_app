@@ -40,7 +40,7 @@ export default async function DashboardPage() {
     ];
   } else if (session.user.role === "almacen") {
     const [revision, legalizaciones] = await Promise.all([
-      prisma.cotizacion.count({ where: { estado: "REVISION_ALMACEN" } }),
+      prisma.cotizacion.count({ where: { estado: "CREADO" } }),
       prisma.cotizacion.count({ where: { estado: "LEGALIZADO" } }),
     ]);
 

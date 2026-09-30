@@ -423,16 +423,24 @@ export async function generarPdfDocumento(datos: DatosDocumentoPdf) {
     },
   };
 
-  // --- Pie de página: comentarios + medios de pago/total + redes sociales, solo en la última página. ---
+  // --- Bloque final: comentarios + medios de pago/total + redes sociales. Va como contenido normal
+  // (no como `footer` de pdfmake): un `footer` se reserva con el mismo pageMargins en TODAS las
+  // páginas aunque solo dibuje algo en la última, dejando un bloque en blanco del alto del pie en
+  // cada página intermedia y además reduciendo el alto útil de la tabla de productos en todas ellas.
+  // Como contenido normal, fluye justo después del total y solo ocupa espacio donde realmente cae.
+  // No queda pegado al fondo real de la página (eso requeriría medir el layout con clases internas
+  // de pdfmake, no públicas): en vez de eso se separa visualmente del resto con una línea divisoria y
+  // más aire arriba, para que se lea como un pie de página aunque su posición no sea fija.
   const anchoCeldaPago = 175;
-  const pie = (currentPage: number, pageCount: number) => {
-    if (currentPage !== pageCount) {
-      return null;
-    }
-
-    return {
-      margin: [MARGEN, 10, MARGEN, 0] as [number, number, number, number],
-      stack: [
+  const bloqueFinal = {
+    unbreakable: true,
+    margin: [0, 24, 0, 0] as [number, number, number, number],
+    stack: [
+        // Línea divisoria: marca visualmente dónde empieza el "pie" del documento.
+        {
+          canvas: [{ type: "line", x1: 0, y1: 0, x2: ANCHO - 2 * MARGEN, y2: 0, lineWidth: 1, lineColor: CONTORNO_BLOQUES }],
+          margin: [0, 0, 0, 10] as [number, number, number, number],
+        },
         // Bloque de comentarios.
         {
           table: {
@@ -536,7 +544,6 @@ export async function generarPdfDocumento(datos: DatosDocumentoPdf) {
           columnGap: 0 // Controlamos el espacio manualmente con el margin del svg
         }
       ],
-    };
   };
 
   const contenido: unknown[] = [
@@ -580,13 +587,17 @@ export async function generarPdfDocumento(datos: DatosDocumentoPdf) {
     });
   }
 
+  contenido.push(bloqueFinal);
+
   const docDefinition = {
     pageSize: { width: ANCHO, height: 792 },
-    pageMargins: [MARGEN, 130, MARGEN, 230] as [number, number, number, number],
+    // El margen inferior ya no reserva espacio para un footer fijo (bloqueFinal ahora es contenido
+    // normal que fluye después del total, no un `footer` repetido en cada página): basta un margen
+    // chico para que la última línea de la tabla no quede pegada al borde.
+    pageMargins: [MARGEN, 130, MARGEN, 40] as [number, number, number, number],
     defaultStyle: { font: "Helvetica" },
     images: { logo, logoSm },
     header: encabezado,
-    footer: pie,
     content: contenido,
   };
 

@@ -1,0 +1,45 @@
+name: Database Backup to Google Drive
+
+on:
+  schedule:
+    # Se ejecuta automáticamente todos los días a las 3:00 AM Bogotá, 
+    # tomando en cuenta que el servidor de github actions corre en UTC
+    - cron: '0 8 * * *'
+  workflow_dispatch: # Permite ejecutarlo manualmente desde la pestaña "Actions" de GitHub
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install PostgreSQL Client (pg_dump)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Install Rclone
+        run: |
+          sudo curl https://rclone.org/install.sh | sudo bash
+
+      - name: Setup Rclone Configuration from Secrets
+        run: |
+          mkdir -p ~/.config/rclone
+          echo "${{ secrets.RCLONE_CONFIG }}" > ~/.config/rclone/rclone.conf
+
+      - name: Run pg_dump & Upload to Google Drive
+        env:
+          NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+        run: |
+          TIMESTAMP=$(date +"%Y-%m-%d")
+          BACKUP_FILE="db_backup_$TIMESTAMP.sql"
+          
+          echo "Generando respaldo desde Neon..."
+          pg_dump "$NEON_DATABASE_URL" -f "$BACKUP_FILE"
+          
+          echo "Subiendo a Google Drive..."
+          rclone copy "$BACKUP_FILE" "gdrive:DatabaseBackups"
+          
+          echo "¡Respaldo completado con éxito en Google Drive!"

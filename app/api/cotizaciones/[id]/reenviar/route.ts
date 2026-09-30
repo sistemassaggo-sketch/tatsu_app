@@ -99,6 +99,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     const itemsAEliminar: number[] = [];
     const itemsAActualizar: { id: number; cantidad: number; precioUnitario: number }[] = [];
+    const itemsARestaurar: { id: number; cantidad: number; precioUnitario: number }[] = [];
     const itemsNuevos: { productoId: number; colorId: number | null; apliqueId: number | null; cantidad: number; precioUnitario: number }[] = [];
 
     for (const entrada of entradas) {
@@ -110,14 +111,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         const itemId = Number(entrada.itemId);
         const itemExistente = itemsExistentesPorId.get(itemId);
 
-        if (!itemExistente || itemExistente.eliminado) {
+        if (!itemExistente) {
           return NextResponse.json({ message: "Uno de los productos ya no pertenece a esta cotización." }, { status: 400 });
         }
 
         idsVistos.add(itemId);
 
-        if (entrada.eliminar) {
-          itemsAEliminar.push(itemId);
+        const yaEliminado = itemExistente.eliminado;
+        const debeQuedarEliminado = Boolean(entrada.eliminar);
+
+        // Ya estaba eliminado (p. ej. por almacén) y sigue eliminado: no se toca, para conservar quién
+        // y cuándo lo eliminó en vez de reescribirlo con el usuario que reenvía.
+        if (yaEliminado && debeQuedarEliminado) {
           continue;
         }
 
@@ -125,8 +130,20 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           return NextResponse.json({ message: "Hay productos con una cantidad inválida." }, { status: 400 });
         }
 
+        if (debeQuedarEliminado) {
+          itemsAEliminar.push(itemId);
+          continue;
+        }
+
+        // Debe quedar activo, estuviera o no eliminado antes: se revalida contra el catálogo actual.
         const { precioUnitario } = await validarProducto(itemExistente.productoId, itemExistente.colorId, itemExistente.apliqueId, cantidad);
-        itemsAActualizar.push({ id: itemId, cantidad, precioUnitario });
+
+        if (yaEliminado) {
+          itemsARestaurar.push({ id: itemId, cantidad, precioUnitario });
+        } else {
+          itemsAActualizar.push({ id: itemId, cantidad, precioUnitario });
+        }
+
         continue;
       }
 
@@ -147,8 +164,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       .reduce((total, item) => total + Number(item.subtotal), 0);
 
     const subtotalActualizados = itemsAActualizar.reduce((total, item) => total + item.precioUnitario * item.cantidad, 0);
+    const subtotalRestaurados = itemsARestaurar.reduce((total, item) => total + item.precioUnitario * item.cantidad, 0);
     const subtotalNuevos = itemsNuevos.reduce((total, item) => total + item.precioUnitario * item.cantidad, 0);
-    const subtotal = subtotalExistentesSinTocar + subtotalActualizados + subtotalNuevos;
+    const subtotal = subtotalExistentesSinTocar + subtotalActualizados + subtotalRestaurados + subtotalNuevos;
 
     if (subtotal <= 0) {
       return NextResponse.json({ message: "La cotización debe tener al menos un producto." }, { status: 400 });
@@ -185,6 +203,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         await tx.itemCotizacion.update({
           where: { id: itemId },
           data: { cantidad, precioUnitario, subtotal: precioUnitario * cantidad },
+        });
+      }
+
+      for (const { id: itemId, cantidad, precioUnitario } of itemsARestaurar) {
+        await tx.itemCotizacion.update({
+          where: { id: itemId },
+          data: { eliminado: false, eliminadoPor: null, fechaEliminacion: null, cantidad, precioUnitario, subtotal: precioUnitario * cantidad },
         });
       }
 

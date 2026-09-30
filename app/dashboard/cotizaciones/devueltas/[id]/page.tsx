@@ -118,6 +118,9 @@ export default async function DetalleCotizacionDevueltaPage({
         cotizacionId={cotizacion.id}
         itemsIniciales={cotizacion.items.map((item) => ({
           id: item.id,
+          productoId: item.productoId,
+          colorId: item.colorId,
+          apliqueId: item.apliqueId,
           codigo: item.producto.codigo,
           descripcionOriginal: item.producto.descripcionOriginal,
           colorNombre: item.color?.nombre ?? null,
@@ -127,6 +130,7 @@ export default async function DetalleCotizacionDevueltaPage({
           precioUnitario: Number(item.precioUnitario),
           cantidad: item.cantidad,
           eliminado: Boolean(item.eliminado),
+          eliminadoPor: item.eliminadoPor ?? null,
         }))}
         productos={productos}
         busqueda={busqueda}
