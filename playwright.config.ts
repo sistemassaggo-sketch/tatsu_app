@@ -70,10 +70,13 @@ export default defineConfig({
     // },
   ],
 
-  /* Run your local dev server before starting the tests */
-  // webServer: {
-  //   command: 'npm run start',
-  //   url: 'http://localhost:3000',
-  //   reuseExistingServer: !process.env.CI,
-  // },
+  /* Levanta la app antes de correr las pruebas: en CI usa el build de producción (ya generado por
+     el workflow con `npm run build`); en local reutiliza un servidor que ya esté corriendo si
+     existe, para no chocar con tu propio `npm run dev`. */
+  webServer: {
+    command: 'npm run start',
+    url: 'http://localhost:3000',
+    reuseExistingServer: !process.env.CI,
+    timeout: 120_000,
+  },
 });

@@ -8,6 +8,33 @@ jobs:
   test:
     timeout-minutes: 60
     runs-on: ubuntu-latest
+    # Postgres real disponible solo durante este job, en localhost:5432 (igual que el que usas en
+    # local): la app necesita una base de datos de verdad, no se puede mockear.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: tatsu_app_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      # Apunta al servicio de Postgres de arriba, no a tu base local ni a Neon: cada corrida de CI
+      # arranca con una base vacía, aislada, que se descarta al terminar el job.
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/tatsu_app_test?schema=public
+      # NextAuth exige esta URL para construir el callback/redirect; debe ser la misma que usa
+      # `webServer` en playwright.config.ts (localhost:3000).
+      NEXTAUTH_URL: http://localhost:3000
+      # No es un secreto real: solo firma JWTs dentro de esta corrida efímera de CI, nunca toca datos
+      # reales. No hace falta configurarlo como GitHub Secret; si prefieres hacerlo de todas formas,
+      # cambia esto por ${{ secrets.NEXTAUTH_SECRET_CI }}.
+      NEXTAUTH_SECRET: ci-solo-para-pruebas-no-es-secreto-real
     steps:
     - uses: actions/checkout@v4
     - uses: actions/setup-node@v4
@@ -15,6 +42,14 @@ jobs:
         node-version: lts/*
     - name: Install dependencies
       run: npm ci
+    - name: Apply database migrations
+      run: npx prisma migrate deploy
+    - name: Generate Prisma client
+      run: npx prisma generate
+    - name: Seed test users
+      run: npm run test:e2e:seed
+    - name: Build app
+      run: npm run build
     - name: Install Playwright Browsers
       run: npx playwright install --with-deps
     - name: Run Playwright tests
